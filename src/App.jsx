@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // 🛑 Google Script 網址
-const API_URL = "https://script.google.com/macros/s/AKfycbyeJDoKyBotCY6UOGYc1-BfBGM4eJF3WDvvrVa5r4wk-QAfP_7iFghlS6CCNdGqP04S/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
 
 // --- 🛠️ 內建圖示 ---
 const Icon = ({ path, size = 18, className = "", onClick }) => (
@@ -259,7 +259,19 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
+  // 自動注入 Viewport Meta & Tailwind CSS
   useEffect(() => {
+    // 1. 強制設定 Viewport，解決手機版寬度跑版問題
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = "viewport";
+      document.head.appendChild(meta);
+    }
+    // 關鍵設定：強制 1.0 比例，禁止使用者縮放導致跑版
+    meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+
+    // 2. 注入 Tailwind
     if (document.querySelector('script[src*="tailwindcss"]')) {
       setStyleLoaded(true);
     } else {
@@ -366,7 +378,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
-           {/* ✨ Logo 修正：純文字版 */}
+           {/* ✨ Logo：純文字版 (無圖片) */}
            <div className="flex flex-col items-center justify-center mb-8">
              <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
              <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
@@ -390,7 +402,8 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen w-full bg-[#f8f9fa] md:bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
+    // ⚠️ 加入 overflow-x-hidden 防止水平卷軸
+    <div className="h-screen w-full bg-[#f8f9fa] md:bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden overflow-x-hidden">
       
       {/* Sidebar (Desktop Only) */}
       <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 hidden md:flex">
