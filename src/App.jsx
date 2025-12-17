@@ -43,7 +43,7 @@ const StatusBadge = () => (
   </span>
 );
 
-// 新增：狀態切換按鈕組件
+// 狀態切換按鈕組件
 const StatusToggle = ({ label, checked, onClick, colorClass }) => (
   <button 
     onClick={(e) => { e.stopPropagation(); onClick(); }}
@@ -58,15 +58,15 @@ const StatusToggle = ({ label, checked, onClick, colorClass }) => (
   </button>
 );
 
-const OrderCard = ({ order, onClick, onStatusChange, onDelete }) => (
+const OrderCard = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
   <div 
     onClick={onClick}
-    className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-3 cursor-pointer active:bg-gray-50 transition-colors relative group"
+    className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-3 cursor-pointer active:bg-gray-50 transition-all relative group ${isCompleted ? 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : ''}`}
   >
     <div className="flex justify-between items-start mb-2">
       <div className="flex flex-col">
         <span className="font-mono text-xs text-[#c25e00] font-bold">#{order.orderId}</span>
-        <h3 className="font-bold text-gray-800 text-base">{order.company}</h3>
+        <h3 className={`font-bold text-gray-800 text-base ${isCompleted ? 'line-through decoration-gray-400' : ''}`}>{order.company}</h3>
       </div>
       <button 
         onClick={(e) => { e.stopPropagation(); onDelete(order.orderId); }}
@@ -168,13 +168,58 @@ const OrderDetailModal = ({ order, onClose }) => {
   );
 };
 
+// 提取重複的表格列渲染邏輯
+const OrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
+  <tr 
+    className={`hover:bg-gray-50 transition-colors cursor-pointer group ${isCompleted ? 'bg-gray-50/50' : ''}`} 
+    onClick={() => onClick(order)}
+  >
+    <td className={`p-4 font-mono font-medium text-[#c25e00] group-hover:text-[#a04d00] ${isCompleted ? 'opacity-50' : ''}`}>{order.orderId}</td>
+    <td className={`p-4 ${isCompleted ? 'opacity-50' : ''}`}>
+      <div className={`font-bold text-gray-800 ${isCompleted ? 'line-through decoration-gray-400' : ''}`}>{order.company}</div>
+      <div className="text-xs text-gray-500">{order.contact} • {order.orderType}</div>
+    </td>
+    <td className={`p-4 ${isCompleted ? 'opacity-50' : ''}`}>
+      <div className="text-gray-800 font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</div>
+      <div className="text-xs text-gray-500">{order.deliveryTime}</div>
+    </td>
+    <td className="p-4">
+      <div className="flex gap-2">
+        <StatusToggle 
+          label="已確認庫存" 
+          checked={order.isStockConfirmed} 
+          onClick={() => onStatusChange(order.orderId, 'stock', !order.isStockConfirmed)}
+          colorClass="bg-blue-500"
+        />
+        <StatusToggle 
+          label="已打單排單" 
+          checked={order.isProcessed} 
+          onClick={() => onStatusChange(order.orderId, 'process', !order.isProcessed)}
+          colorClass="bg-purple-500"
+        />
+      </div>
+    </td>
+    <td className="p-4 text-right">
+      <div className="flex justify-end items-center gap-3">
+        <span className="text-gray-400 hover:text-[#c25e00] text-xs font-bold underline decoration-dotted underline-offset-4">詳情</span>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(order.orderId); }}
+          className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+          title="刪除訂單"
+        >
+          <Icons.Trash2 size={16} />
+        </button>
+      </div>
+    </td>
+  </tr>
+);
+
 export default function AdminDashboard() {
   const [styleLoaded, setStyleLoaded] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // 自動注入 Tailwind CSS
   useEffect(() => {
     if (document.querySelector('script[src*="tailwindcss"]')) {
       setStyleLoaded(true);
@@ -240,9 +285,11 @@ export default function AdminDashboard() {
     setFilteredOrders(result);
   }, [searchTerm, orders]);
 
-  // 🔥 新增：處理狀態更新
+  // 分類訂單
+  const activeOrders = filteredOrders.filter(o => !o.isStockConfirmed || !o.isProcessed);
+  const completedOrders = filteredOrders.filter(o => o.isStockConfirmed && o.isProcessed);
+
   const handleStatusChange = async (orderId, field, newValue) => {
-    // 1. Optimistic Update (前端先變色，讓使用者覺得很快)
     setOrders(prev => prev.map(o => {
       if (o.orderId === orderId) {
         return field === 'stock' ? { ...o, isStockConfirmed: newValue } : { ...o, isProcessed: newValue };
@@ -250,7 +297,6 @@ export default function AdminDashboard() {
       return o;
     }));
 
-    // 2. 背景發送請求給 Google Script
     try {
       await fetch(API_URL, {
         method: 'POST',
@@ -260,18 +306,15 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       alert("更新失敗，請檢查網路");
-      fetchOrders(); // 失敗的話重新抓取正確資料
+      fetchOrders(); 
     }
   };
 
-  // 🔥 新增：處理刪除訂單
   const handleDeleteOrder = async (orderId) => {
     if (!window.confirm(`確定要刪除訂單 ${orderId} 嗎？此動作無法復原。`)) return;
 
-    // 1. 前端先移除
     setOrders(prev => prev.filter(o => o.orderId !== orderId));
 
-    // 2. 發送刪除請求
     try {
       await fetch(API_URL, {
         method: 'POST',
@@ -307,7 +350,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // --- 登入畫面 ---
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4">
@@ -359,7 +401,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // --- 後台主畫面 ---
   return (
     <div className="h-screen w-full bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
       
@@ -395,7 +436,7 @@ export default function AdminDashboard() {
             <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               訂單列表 
               <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">
-                {filteredOrders.length}
+                {activeOrders.length} / {filteredOrders.length}
               </span>
             </h1>
           </div>
@@ -455,46 +496,37 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredOrders.map((order, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => setSelectedOrder(order)}>
-                        <td className="p-4 font-mono font-medium text-[#c25e00] group-hover:text-[#a04d00]">{order.orderId}</td>
-                        <td className="p-4">
-                          <div className="font-bold text-gray-800">{order.company}</div>
-                          <div className="text-xs text-gray-500">{order.contact} • {order.orderType}</div>
-                        </td>
-                        <td className="p-4">
-                          <div className="text-gray-800 font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</div>
-                          <div className="text-xs text-gray-500">{order.deliveryTime}</div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <StatusToggle 
-                              label="已確認庫存" 
-                              checked={order.isStockConfirmed} 
-                              onClick={() => handleStatusChange(order.orderId, 'stock', !order.isStockConfirmed)}
-                              colorClass="bg-blue-500"
-                            />
-                            <StatusToggle 
-                              label="已打單排單" 
-                              checked={order.isProcessed} 
-                              onClick={() => handleStatusChange(order.orderId, 'process', !order.isProcessed)}
-                              colorClass="bg-purple-500"
-                            />
-                          </div>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end items-center gap-3">
-                            <span className="text-gray-400 hover:text-[#c25e00] text-xs font-bold underline decoration-dotted underline-offset-4">詳情</span>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.orderId); }}
-                              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                              title="刪除訂單"
-                            >
-                              <Icons.Trash2 size={16} />
-                            </button>
-                          </div>
+                    {/* 進行中訂單 */}
+                    {activeOrders.map((order, idx) => (
+                      <OrderRow 
+                        key={order.orderId} 
+                        order={order} 
+                        onClick={() => setSelectedOrder(order)} 
+                        onStatusChange={handleStatusChange} 
+                        onDelete={handleDeleteOrder} 
+                        isCompleted={false}
+                      />
+                    ))}
+
+                    {/* 分隔線 (僅當有完成訂單時顯示) */}
+                    {completedOrders.length > 0 && (
+                      <tr className="bg-gray-100/50">
+                        <td colSpan="5" className="p-3 text-center text-xs font-bold text-gray-400 tracking-widest border-t border-b border-gray-200/50">
+                          已完成訂單 ({completedOrders.length})
                         </td>
                       </tr>
+                    )}
+
+                    {/* 已完成訂單 (淡化顯示) */}
+                    {completedOrders.map((order, idx) => (
+                      <OrderRow 
+                        key={order.orderId} 
+                        order={order} 
+                        onClick={() => setSelectedOrder(order)} 
+                        onStatusChange={handleStatusChange} 
+                        onDelete={handleDeleteOrder} 
+                        isCompleted={true}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -502,13 +534,36 @@ export default function AdminDashboard() {
 
               {/* Mobile Card View */}
               <div className="md:hidden pb-10">
-                {filteredOrders.map((order, idx) => (
+                {/* 進行中訂單 */}
+                {activeOrders.map((order, idx) => (
                   <OrderCard 
-                    key={idx} 
+                    key={order.orderId} 
                     order={order} 
                     onClick={() => setSelectedOrder(order)} 
                     onStatusChange={handleStatusChange}
                     onDelete={handleDeleteOrder}
+                    isCompleted={false}
+                  />
+                ))}
+
+                {/* 分隔線 (僅當有完成訂單時顯示) */}
+                {completedOrders.length > 0 && (
+                  <div className="mt-8 mb-4 flex items-center justify-center gap-3">
+                    <div className="h-px bg-gray-300 w-12 opacity-50"></div>
+                    <span className="text-[10px] font-bold text-gray-400 tracking-widest">已完成訂單</span>
+                    <div className="h-px bg-gray-300 w-12 opacity-50"></div>
+                  </div>
+                )}
+
+                {/* 已完成訂單 */}
+                {completedOrders.map((order, idx) => (
+                  <OrderCard 
+                    key={order.orderId} 
+                    order={order} 
+                    onClick={() => setSelectedOrder(order)} 
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDeleteOrder}
+                    isCompleted={true}
                   />
                 ))}
               </div>
