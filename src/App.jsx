@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 // 🛑 Google Script 網址
 const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
@@ -174,7 +174,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const fetchOrders = async () => {
+  // 🛠️ 修正：使用 useCallback 包裝，解決 useEffect 依賴警告
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
@@ -200,13 +201,14 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // 🛠️ 修正：只在登入成功後觸發一次讀取
   useEffect(() => {
     if (isLoggedIn) {
       fetchOrders();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, fetchOrders]);
 
   useEffect(() => {
     let result = orders;
@@ -248,7 +250,6 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
-           {/* 🛠️ Logo 改為純文字排版 */}
            <div className="flex flex-col items-center justify-center mb-8">
              <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
              <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
@@ -288,7 +289,6 @@ export default function AdminDashboard() {
         </div>
         <p className="text-gray-600 text-[10px] mt-8 tracking-[0.3em] font-mono">© 2025 TILE PARK ADMIN</p>
         
-        {/* 修正 style 標籤，移除 jsx 屬性 */}
         <style>{`
           .animate-fade-in { animation: fadeIn 0.5s ease-out; }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -304,15 +304,12 @@ export default function AdminDashboard() {
       {/* Sidebar / Mobile Header */}
       <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 shadow-lg md:shadow-none">
         <div className="p-3 md:p-6 flex items-center justify-between md:justify-start border-b border-gray-700 shrink-0">
-           {/* 🛠️ 側邊欄 Logo 改為純文字排版 */}
            <div className="flex items-center gap-3">
              <div className="flex flex-col leading-none">
                 <span className="font-bold text-white tracking-widest text-base md:text-lg">TILE PARK</span>
                 <span className="text-[10px] text-[#c25e00] tracking-[0.35em]">TAIWAN</span>
              </div>
-             {/* 分隔線：手機版隱藏，平板以上顯示 */}
              <div className="h-6 w-px bg-gray-600 hidden sm:block"></div>
-             {/* Admin 字樣：手機版隱藏，平板以上顯示 */}
              <span className="font-bold tracking-widest text-sm md:text-base text-gray-400 hidden sm:block">ADMIN</span>
            </div>
         </div>
