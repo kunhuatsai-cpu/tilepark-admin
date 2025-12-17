@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // 🛑 Google Script 網址
-const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyeJDoKyBotCY6UOGYc1-BfBGM4eJF3WDvvrVa5r4wk-QAfP_7iFghlS6CCNdGqP04S/exec";
 
 // --- 🛠️ 內建圖示 ---
 const Icon = ({ path, size = 18, className = "", onClick }) => (
