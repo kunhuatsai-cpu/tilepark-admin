@@ -37,13 +37,6 @@ const Icons = {
 
 // --- Components ---
 
-const StatusBadge = () => (
-  <span className="px-2 py-1 rounded-full text-[10px] md:text-xs font-bold border bg-green-100 text-green-800 border-green-200 whitespace-nowrap">
-    已接收
-  </span>
-);
-
-// 狀態切換按鈕組件
 const StatusToggle = ({ label, checked, onClick, colorClass }) => (
   <button 
     onClick={(e) => { e.stopPropagation(); onClick(); }}
@@ -168,7 +161,6 @@ const OrderDetailModal = ({ order, onClose }) => {
   );
 };
 
-// 提取重複的表格列渲染邏輯
 const OrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
   <tr 
     className={`hover:bg-gray-50 transition-colors cursor-pointer group ${isCompleted ? 'bg-gray-50/50' : ''}`} 
@@ -237,6 +229,9 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  
+  // 🔥 新增：當前選中的分頁標籤 (all, active, completed)
+  const [activeTab, setActiveTab] = useState("all");
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -274,6 +269,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let result = orders;
+    
+    // 1. 關鍵字搜尋
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(o => 
@@ -282,12 +279,20 @@ export default function AdminDashboard() {
         (o.contact && o.contact.toLowerCase().includes(term))
       );
     }
-    setFilteredOrders(result);
-  }, [searchTerm, orders]);
 
-  // 分類訂單
-  const activeOrders = filteredOrders.filter(o => !o.isStockConfirmed || !o.isProcessed);
-  const completedOrders = filteredOrders.filter(o => o.isStockConfirmed && o.isProcessed);
+    // 2. 標籤篩選 (Tabs)
+    if (activeTab === "active") {
+      result = result.filter(o => !o.isStockConfirmed || !o.isProcessed);
+    } else if (activeTab === "completed") {
+      result = result.filter(o => o.isStockConfirmed && o.isProcessed);
+    }
+
+    setFilteredOrders(result);
+  }, [searchTerm, orders, activeTab]);
+
+  // 分類訂單 (用於顯示分隔線)
+  const activeList = filteredOrders.filter(o => !o.isStockConfirmed || !o.isProcessed);
+  const completedList = filteredOrders.filter(o => o.isStockConfirmed && o.isProcessed);
 
   const handleStatusChange = async (orderId, field, newValue) => {
     setOrders(prev => prev.map(o => {
@@ -392,11 +397,7 @@ export default function AdminDashboard() {
            </form>
         </div>
         <p className="text-gray-600 text-[10px] mt-8 tracking-[0.3em] font-mono">© 2025 TILE PARK ADMIN</p>
-        
-        <style>{`
-          .animate-fade-in { animation: fadeIn 0.5s ease-out; }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        `}</style>
+        <style>{`.animate-fade-in { animation: fadeIn 0.5s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       </div>
     );
   }
@@ -425,47 +426,71 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="hidden md:block p-4 border-t border-gray-700 text-xs text-gray-500 text-center md:text-left shrink-0">
-          v2.0 Pro
+          v2.1 Tabs
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 bg-gray-100/50 relative">
-        <header className="bg-white border-b border-gray-200 p-3 md:p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 z-10 shadow-sm">
-          <div className="w-full sm:w-auto flex justify-between items-center">
-            <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              訂單列表 
-              <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">
-                {activeOrders.length} / {filteredOrders.length}
-              </span>
-            </h1>
+        <header className="bg-white border-b border-gray-200 p-3 md:p-4 flex flex-col gap-3 shrink-0 z-10 shadow-sm">
+          {/* Top Row: Title & Search */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="w-full sm:w-auto flex justify-between items-center">
+              <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                訂單列表 
+                <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">
+                  {filteredOrders.length}
+                </span>
+              </h1>
+            </div>
+
+            <div className="flex w-full sm:w-auto gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Icons.Search size={16} />
+                </span>
+                <input 
+                  type="text" 
+                  placeholder="搜尋單號、公司..." 
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c25e00]/30 focus:border-[#c25e00] text-sm transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <button 
+                onClick={fetchOrders} 
+                className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
+              >
+                <Icons.RefreshCw size={18} />
+              </button>
+              <button 
+                onClick={() => setIsLoggedIn(false)}
+                className="ml-2 text-xs text-gray-400 hover:text-red-500 underline decoration-dotted whitespace-nowrap"
+              >
+                登出
+              </button>
+            </div>
           </div>
 
-          <div className="flex w-full sm:w-auto gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <Icons.Search size={16} />
-              </span>
-              <input 
-                type="text" 
-                placeholder="搜尋單號、公司..." 
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c25e00]/30 focus:border-[#c25e00] text-sm transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <button 
-              onClick={fetchOrders} 
-              className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
-            >
-              <Icons.RefreshCw size={18} />
-            </button>
-            <button 
-              onClick={() => setIsLoggedIn(false)}
-              className="ml-2 text-xs text-gray-400 hover:text-red-500 underline decoration-dotted"
-            >
-              登出
-            </button>
+          {/* 🔥 新增：篩選標籤列 (原本那排) */}
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {[
+              { id: 'all', label: '全部顯示' },
+              { id: 'active', label: '進行中' },
+              { id: 'completed', label: '已完成' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${
+                  activeTab === tab.id 
+                    ? 'bg-[#222] text-white border-[#222]' 
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </header>
 
@@ -496,8 +521,10 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
+                    {/* 如果選「全部」，會自動分兩區顯示。如果選單一狀態，就只顯示那一區 */}
+                    
                     {/* 進行中訂單 */}
-                    {activeOrders.map((order, idx) => (
+                    {activeList.map((order, idx) => (
                       <OrderRow 
                         key={order.orderId} 
                         order={order} 
@@ -508,17 +535,17 @@ export default function AdminDashboard() {
                       />
                     ))}
 
-                    {/* 分隔線 (僅當有完成訂單時顯示) */}
-                    {completedOrders.length > 0 && (
+                    {/* 分隔線 (僅當「全部」且兩邊都有資料時顯示) */}
+                    {activeTab === 'all' && activeList.length > 0 && completedList.length > 0 && (
                       <tr className="bg-gray-100/50">
                         <td colSpan="5" className="p-3 text-center text-xs font-bold text-gray-400 tracking-widest border-t border-b border-gray-200/50">
-                          已完成訂單 ({completedOrders.length})
+                          已完成訂單 ({completedList.length})
                         </td>
                       </tr>
                     )}
 
-                    {/* 已完成訂單 (淡化顯示) */}
-                    {completedOrders.map((order, idx) => (
+                    {/* 已完成訂單 */}
+                    {completedList.map((order, idx) => (
                       <OrderRow 
                         key={order.orderId} 
                         order={order} 
@@ -534,8 +561,8 @@ export default function AdminDashboard() {
 
               {/* Mobile Card View */}
               <div className="md:hidden pb-10">
-                {/* 進行中訂單 */}
-                {activeOrders.map((order, idx) => (
+                {/* 進行中 */}
+                {activeList.map((order, idx) => (
                   <OrderCard 
                     key={order.orderId} 
                     order={order} 
@@ -546,8 +573,8 @@ export default function AdminDashboard() {
                   />
                 ))}
 
-                {/* 分隔線 (僅當有完成訂單時顯示) */}
-                {completedOrders.length > 0 && (
+                {/* 分隔線 */}
+                {activeTab === 'all' && activeList.length > 0 && completedList.length > 0 && (
                   <div className="mt-8 mb-4 flex items-center justify-center gap-3">
                     <div className="h-px bg-gray-300 w-12 opacity-50"></div>
                     <span className="text-[10px] font-bold text-gray-400 tracking-widest">已完成訂單</span>
@@ -555,8 +582,8 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* 已完成訂單 */}
-                {completedOrders.map((order, idx) => (
+                {/* 已完成 */}
+                {completedList.map((order, idx) => (
                   <OrderCard 
                     key={order.orderId} 
                     order={order} 
