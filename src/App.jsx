@@ -76,7 +76,7 @@ const DesktopStatusToggle = ({ label, checked, onClick, colorClass }) => (
 const MobileOrderCard = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
   <div 
     onClick={onClick}
-    className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 active:scale-[0.98] transition-transform relative overflow-hidden ${isCompleted ? 'opacity-70 bg-gray-50' : ''}`}
+    className={`bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4 active:scale-[0.98] transition-transform relative overflow-hidden ${isCompleted ? 'opacity-70 bg-gray-50' : ''}`}
   >
     {/* 側邊顏色條 */}
     <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isCompleted ? 'bg-gray-300' : 'bg-[#c25e00]'}`}></div>
@@ -261,14 +261,14 @@ export default function AdminDashboard() {
 
   // 自動注入 Viewport Meta & Tailwind CSS
   useEffect(() => {
-    // 1. 強制設定 Viewport，解決手機版寬度跑版問題
+    // 🛠️ 1. 強制設定 Viewport：解決手機版寬度跑版與縮放問題
     let meta = document.querySelector('meta[name="viewport"]');
     if (!meta) {
       meta = document.createElement('meta');
       meta.name = "viewport";
       document.head.appendChild(meta);
     }
-    // 關鍵設定：強制 1.0 比例，禁止使用者縮放導致跑版
+    // 設定 maximum-scale=1.0, user-scalable=no 讓網頁像 App 一樣固定比例
     meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
 
     // 2. 注入 Tailwind
@@ -378,7 +378,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
-           {/* ✨ Logo：純文字版 (無圖片) */}
+           {/* ✨ Logo：純文字版 */}
            <div className="flex flex-col items-center justify-center mb-8">
              <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
              <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
@@ -402,8 +402,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    // ⚠️ 加入 overflow-x-hidden 防止水平卷軸
-    <div className="h-screen w-full bg-[#f8f9fa] md:bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden overflow-x-hidden">
+    // 🛠️ 使用 h-[100dvh] (Dynamic Viewport Height) 解決手機瀏覽器工具列遮擋問題
+    // 🛠️ 使用 overflow-x-hidden 防止水平卷軸
+    <div className="h-[100dvh] w-full bg-[#f8f9fa] md:bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden overflow-x-hidden">
       
       {/* Sidebar (Desktop Only) */}
       <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 hidden md:flex">
@@ -420,22 +421,38 @@ export default function AdminDashboard() {
         <nav className="p-4 flex-1">
           <button className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#c25e00] text-white font-bold text-sm w-full shadow-sm"><Icons.FileText size={18} /> <span>訂單管理</span></button>
         </nav>
-        <div className="p-4 border-t border-gray-700 text-xs text-gray-500">v3.0 Mobile App</div>
+        <div className="p-4 border-t border-gray-700 text-xs text-gray-500">v3.1 Mobile Fix</div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 bg-[#f8f9fa] md:bg-gray-100/50 relative">
         
-        {/* Mobile Header (App Style) */}
-        <header className="bg-white border-b border-gray-100 p-4 md:hidden flex justify-between items-center z-10 shadow-sm sticky top-0">
-          <div className="flex flex-col leading-none">
-             <span className="font-bold text-gray-900 tracking-widest text-base">TILE PARK</span>
-             <span className="text-[9px] text-[#c25e00] tracking-[0.35em] font-bold">ADMIN</span>
+        {/* 🛠️ Mobile Header + Search + Tabs 整合為一個 Sticky 區塊，解決跑位問題 */}
+        <div className="md:hidden sticky top-0 z-30 bg-[#f8f9fa] shadow-sm">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-100 p-4 flex justify-between items-center">
+            <div className="flex flex-col leading-none">
+               <span className="font-bold text-gray-900 tracking-widest text-base">TILE PARK</span>
+               <span className="text-[9px] text-[#c25e00] tracking-[0.35em] font-bold">ADMIN</span>
+            </div>
+            <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-gray-600"><Icons.LogOut size={20} /></button>
           </div>
-          <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-gray-600"><Icons.LogOut size={20} /></button>
-        </header>
+          
+          {/* Search & Tabs */}
+          <div className="px-4 py-3 bg-white border-b border-gray-100 flex flex-col gap-3">
+             <div className="relative">
+               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Search size={16} /></span>
+               <input type="text" placeholder="搜尋單號、公司..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#c25e00]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+             </div>
+             <div className="flex bg-gray-100 p-1 rounded-lg">
+               {[ { id: 'all', label: '全部' }, { id: 'active', label: '進行中' }, { id: 'completed', label: '已完成' } ].map(tab => (
+                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}>{tab.label}</button>
+               ))}
+             </div>
+          </div>
+        </div>
 
-        {/* Desktop Header */}
+        {/* Desktop Header (Hidden on Mobile) */}
         <header className="bg-white border-b border-gray-200 p-4 hidden md:flex flex-col gap-3 shrink-0 shadow-sm">
           <div className="flex justify-between items-center gap-3">
             <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">訂單列表 <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">{filteredOrders.length}</span></h1>
@@ -451,19 +468,6 @@ export default function AdminDashboard() {
             ))}
           </div>
         </header>
-
-        {/* Mobile Search & Tabs */}
-        <div className="md:hidden px-4 py-3 bg-white border-b border-gray-100 flex flex-col gap-3 shadow-sm sticky top-[60px] z-10">
-           <div className="relative">
-             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Search size={16} /></span>
-             <input type="text" placeholder="搜尋單號、公司..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#c25e00]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-           </div>
-           <div className="flex bg-gray-100 p-1 rounded-lg">
-             {[ { id: 'all', label: '全部' }, { id: 'active', label: '進行中' }, { id: 'completed', label: '已完成' } ].map(tab => (
-               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}>{tab.label}</button>
-             ))}
-           </div>
-        </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
           {errorMsg && <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 text-center text-sm border border-red-200">{errorMsg}</div>}
