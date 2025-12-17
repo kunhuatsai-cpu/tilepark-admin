@@ -31,64 +31,99 @@ const Icons = {
   X: (props) => <Icon {...props} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />,
   Lock: (props) => <Icon {...props} path={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
   Trash2: (props) => <Icon {...props} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>} />,
-  CheckSquare: (props) => <Icon {...props} path={<><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>} />,
-  Square: (props) => <Icon {...props} path={<rect width="18" height="18" x="3" y="3" rx="2" />} />
+  Check: (props) => <Icon {...props} path={<polyline points="20 6 9 17 4 12"/>} />,
+  Phone: (props) => <Icon {...props} path={<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>} />,
+  LogOut: (props) => <Icon {...props} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>} />
 };
 
 // --- Components ---
 
-const StatusToggle = ({ label, checked, onClick, colorClass }) => (
+// 手機版按鈕：狀態切換 (App 風格)
+const MobileStatusToggle = ({ label, checked, onClick, colorClass }) => (
   <button 
     onClick={(e) => { e.stopPropagation(); onClick(); }}
-    className={`flex items-center gap-1.5 px-2 py-1 rounded border transition-all text-xs font-bold ${
+    className={`flex-1 py-3 px-2 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm shadow-sm border ${
+      checked 
+        ? `${colorClass} text-white border-transparent` 
+        : "bg-white text-gray-400 border-gray-200"
+    }`}
+  >
+    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${checked ? 'border-white bg-white/20' : 'border-gray-300'}`}>
+      {checked && <Icons.Check size={12} strokeWidth={4} />}
+    </div>
+    {label}
+  </button>
+);
+
+// 電腦版按鈕：狀態切換 (精簡版)
+const DesktopStatusToggle = ({ label, checked, onClick, colorClass }) => (
+  <button 
+    onClick={(e) => { e.stopPropagation(); onClick(); }}
+    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${
       checked 
         ? `${colorClass} text-white border-transparent shadow-sm` 
         : "bg-white text-gray-400 border-gray-200 hover:border-gray-400"
     }`}
   >
-    {checked ? <Icons.CheckSquare size={14} /> : <Icons.Square size={14} />}
+    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${checked ? 'border-white' : 'border-gray-400'}`}>
+      {checked && <Icons.Check size={8} strokeWidth={4} />}
+    </div>
     {label}
   </button>
 );
 
-const OrderCard = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
+// 手機版卡片 (App 風格)
+const MobileOrderCard = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
   <div 
     onClick={onClick}
-    className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-3 cursor-pointer active:bg-gray-50 transition-all relative group ${isCompleted ? 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : ''}`}
+    className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 active:scale-[0.98] transition-transform relative overflow-hidden ${isCompleted ? 'opacity-70 bg-gray-50' : ''}`}
   >
-    <div className="flex justify-between items-start mb-2">
-      <div className="flex flex-col">
-        <span className="font-mono text-xs text-[#c25e00] font-bold">#{order.orderId}</span>
-        <h3 className={`font-bold text-gray-800 text-base ${isCompleted ? 'line-through decoration-gray-400' : ''}`}>{order.company}</h3>
+    {/* 側邊顏色條 */}
+    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isCompleted ? 'bg-gray-300' : 'bg-[#c25e00]'}`}></div>
+
+    <div className="flex justify-between items-start mb-3 pl-3">
+      <div>
+        <span className="text-[10px] font-mono text-gray-400 tracking-wider bg-gray-100 px-2 py-0.5 rounded-md">#{order.orderId}</span>
+        <h3 className={`font-bold text-gray-800 text-lg mt-1 ${isCompleted ? 'line-through decoration-gray-400 text-gray-500' : ''}`}>{order.company}</h3>
+        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+          <span className="bg-gray-100 px-1.5 rounded">{order.orderType}</span>
+          <span>• {order.contact}</span>
+        </div>
       </div>
-      <button 
-        onClick={(e) => { e.stopPropagation(); onDelete(order.orderId); }}
-        className="text-gray-300 hover:text-red-500 p-1 transition-colors"
-      >
-        <Icons.Trash2 size={16} />
-      </button>
+      <div className="flex gap-2">
+        <a href={`tel:${order.phone}`} onClick={(e) => e.stopPropagation()} className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center border border-green-100 hover:bg-green-100">
+          <Icons.Phone size={14} />
+        </a>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(order.orderId); }}
+          className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+        >
+          <Icons.Trash2 size={14} />
+        </button>
+      </div>
     </div>
     
-    <div className="text-sm text-gray-600 space-y-1.5 mb-3 bg-gray-50 p-2 rounded border border-gray-100">
-      <div className="flex items-center gap-2">
-        <Icons.Clock size={14} className="text-gray-400" /> 
-        <span className="font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
+    <div className="pl-3 space-y-2 mb-4">
+      <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100">
+        <Icons.Clock size={16} className="text-[#c25e00]" /> 
+        <span className="font-bold">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
+        <span className="text-gray-400 text-xs ml-auto">{order.deliveryTime}</span>
       </div>
-      <div className="flex items-start gap-2">
-        <Icons.Package size={14} className="text-gray-400 mt-0.5" /> 
-        <span className="line-clamp-2">{order.parsedItems.join(', ')}</span>
+      <div className="text-sm text-gray-500 line-clamp-2 px-1">
+        {order.parsedItems.join(', ')}
       </div>
     </div>
 
-    <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
-      <StatusToggle 
-        label="庫存" 
+    {/* 底部操作區 */}
+    <div className="flex gap-3 pl-3 pt-2">
+      <MobileStatusToggle 
+        label="確認庫存" 
         checked={order.isStockConfirmed} 
         onClick={() => onStatusChange(order.orderId, 'stock', !order.isStockConfirmed)}
         colorClass="bg-blue-500"
       />
-      <StatusToggle 
-        label="排單" 
+      <MobileStatusToggle 
+        label="已排單" 
         checked={order.isProcessed} 
         onClick={() => onStatusChange(order.orderId, 'process', !order.isProcessed)}
         colorClass="bg-purple-500"
@@ -97,71 +132,8 @@ const OrderCard = ({ order, onClick, onStatusChange, onDelete, isCompleted }) =>
   </div>
 );
 
-const OrderDetailModal = ({ order, onClose }) => {
-  if (!order) return null;
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
-          <div>
-            <p className="text-xs text-gray-400 font-mono">ORDER ID</p>
-            <h2 className="text-xl font-bold font-mono tracking-wider">{order.orderId}</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <Icons.X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <section>
-              <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">客戶資訊</h3>
-              <div className="space-y-2 text-sm">
-                <p><span className="text-gray-400 w-16 inline-block">公司:</span> <span className="font-bold">{order.company}</span></p>
-                <p><span className="text-gray-400 w-16 inline-block">聯絡人:</span> {order.contact}</p>
-                <p><span className="text-gray-400 w-16 inline-block">電話:</span> <a href={`tel:${order.phone}`} className="text-blue-600 hover:underline">{order.phone}</a></p>
-                <p><span className="text-gray-400 w-16 inline-block">類型:</span> {order.orderType}</p>
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">配送資訊</h3>
-              <div className="space-y-2 text-sm">
-                <p><span className="text-gray-400 w-16 inline-block">日期:</span> <span className="font-bold">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span></p>
-                <p><span className="text-gray-400 w-16 inline-block">時段:</span> {order.deliveryTime}</p>
-                <p><span className="text-gray-400 w-16 inline-block">地址:</span> {order.address}</p>
-              </div>
-            </section>
-          </div>
-
-          <section>
-            <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">訂購商品</h3>
-            <div className="border rounded-lg overflow-hidden bg-gray-50">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-100 text-gray-500 font-medium">
-                  <tr><th className="p-3">品項內容 (品名 / 數量 / 備註)</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {order.parsedItems && order.parsedItems.length > 0 ? (
-                    order.parsedItems.map((itemStr, idx) => (
-                      <tr key={idx} className="hover:bg-gray-100">
-                        <td className="p-3 font-medium text-gray-800">{itemStr}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td className="p-3 text-gray-400">無商品資料</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const OrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
+// 電腦版表格列
+const DesktopOrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => (
   <tr 
     className={`hover:bg-gray-50 transition-colors cursor-pointer group ${isCompleted ? 'bg-gray-50/50' : ''}`} 
     onClick={() => onClick(order)}
@@ -177,13 +149,13 @@ const OrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => 
     </td>
     <td className="p-4">
       <div className="flex gap-2">
-        <StatusToggle 
+        <DesktopStatusToggle 
           label="已確認庫存" 
           checked={order.isStockConfirmed} 
           onClick={() => onStatusChange(order.orderId, 'stock', !order.isStockConfirmed)}
           colorClass="bg-blue-500"
         />
-        <StatusToggle 
+        <DesktopStatusToggle 
           label="已打單排單" 
           checked={order.isProcessed} 
           onClick={() => onStatusChange(order.orderId, 'process', !order.isProcessed)}
@@ -205,6 +177,81 @@ const OrderRow = ({ order, onClick, onStatusChange, onDelete, isCompleted }) => 
     </td>
   </tr>
 );
+
+const OrderDetailModal = ({ order, onClose }) => {
+  if (!order) return null;
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
+          <div>
+            <p className="text-[10px] text-gray-400 font-mono tracking-widest">ORDER DETAIL</p>
+            <h2 className="text-xl font-bold font-mono tracking-wider">{order.orderId}</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            <Icons.X size={24} />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50/50">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+              <h3 className="font-bold text-gray-800 text-lg">{order.company}</h3>
+              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{order.orderType}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-gray-400 mb-1">訂購人</p>
+                <p className="font-medium text-gray-700">{order.contact}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">電話</p>
+                <a href={`tel:${order.phone}`} className="font-medium text-blue-600 hover:underline">{order.phone}</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
+            <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Icons.Package size={14}/> 訂購內容
+            </h3>
+            <div className="divide-y divide-gray-100">
+              {order.parsedItems.length > 0 ? (
+                order.parsedItems.map((itemStr, idx) => (
+                  <div key={idx} className="py-3 text-sm text-gray-700 font-medium">
+                    {itemStr}
+                  </div>
+                ))
+              ) : (
+                <div className="py-3 text-sm text-gray-400">無商品資料</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+            <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Icons.Clock size={14}/> 配送資訊
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between border-b border-gray-50 pb-2">
+                <span className="text-gray-500">日期</span>
+                <span className="font-bold text-gray-800">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
+              </div>
+              <div className="flex justify-between border-b border-gray-50 pb-2">
+                <span className="text-gray-500">時段</span>
+                <span className="font-bold text-gray-800">{order.deliveryTime}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block mb-1">地址</span>
+                <span className="font-bold text-gray-800 break-words">{order.address}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AdminDashboard() {
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -229,8 +276,6 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  
-  // 🔥 新增：當前選中的分頁標籤 (all, active, completed)
   const [activeTab, setActiveTab] = useState("all");
 
   const fetchOrders = useCallback(async () => {
@@ -262,15 +307,11 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchOrders();
-    }
+    if (isLoggedIn) fetchOrders();
   }, [isLoggedIn, fetchOrders]);
 
   useEffect(() => {
     let result = orders;
-    
-    // 1. 關鍵字搜尋
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(o => 
@@ -279,18 +320,12 @@ export default function AdminDashboard() {
         (o.contact && o.contact.toLowerCase().includes(term))
       );
     }
-
-    // 2. 標籤篩選 (Tabs)
-    if (activeTab === "active") {
-      result = result.filter(o => !o.isStockConfirmed || !o.isProcessed);
-    } else if (activeTab === "completed") {
-      result = result.filter(o => o.isStockConfirmed && o.isProcessed);
-    }
+    if (activeTab === "active") result = result.filter(o => !o.isStockConfirmed || !o.isProcessed);
+    else if (activeTab === "completed") result = result.filter(o => o.isStockConfirmed && o.isProcessed);
 
     setFilteredOrders(result);
   }, [searchTerm, orders, activeTab]);
 
-  // 分類訂單 (用於顯示分隔線)
   const activeList = filteredOrders.filter(o => !o.isStockConfirmed || !o.isProcessed);
   const completedList = filteredOrders.filter(o => o.isStockConfirmed && o.isProcessed);
 
@@ -301,59 +336,31 @@ export default function AdminDashboard() {
       }
       return o;
     }));
-
     try {
       await fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', orderId, field, value: newValue })
       });
-    } catch (error) {
-      alert("更新失敗，請檢查網路");
-      fetchOrders(); 
-    }
+    } catch (error) { alert("更新失敗"); fetchOrders(); }
   };
 
   const handleDeleteOrder = async (orderId) => {
     if (!window.confirm(`確定要刪除訂單 ${orderId} 嗎？此動作無法復原。`)) return;
-
     setOrders(prev => prev.filter(o => o.orderId !== orderId));
-
     try {
       await fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', orderId })
       });
-    } catch (error) {
-      alert("刪除失敗");
-      fetchOrders();
-    }
+    } catch (error) { alert("刪除失敗"); fetchOrders(); }
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === '8888') {
-      setIsLoggedIn(true);
-      setLoginError("");
-    } else {
-      setLoginError("密碼錯誤，請重新輸入");
-      setPassword("");
-    }
+    if (password === '8888') { setIsLoggedIn(true); setLoginError(""); } else { setLoginError("密碼錯誤"); setPassword(""); }
   };
 
-  if (!styleLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#222] text-gray-500">
-        <div className="flex flex-col items-center gap-2">
-           <div className="w-8 h-8 border-4 border-white/20 border-t-[#c25e00] rounded-full animate-spin"></div>
-           <p className="text-sm text-gray-400 tracking-widest">LOADING SYSTEM...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!styleLoaded) return <div className="min-h-screen flex items-center justify-center bg-[#222] text-gray-500"><div className="w-8 h-8 border-4 border-white/20 border-t-[#c25e00] rounded-full animate-spin"></div></div>;
 
   if (!isLoggedIn) {
     return (
@@ -364,36 +371,14 @@ export default function AdminDashboard() {
              <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
              <span className="text-sm text-gray-400 tracking-[0.5em]">TAIWAN</span>
            </div>
-           
            <h2 className="text-white/80 text-center text-sm font-bold mb-6 tracking-[0.2em] font-mono">ADMIN ACCESS</h2>
-           
            <form onSubmit={handleLogin} className="space-y-5">
              <div className="relative">
-               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                 <Icons.Lock size={18} className="text-gray-500" />
-               </div>
-               <input 
-                 type="password" 
-                 placeholder="PASSWORD"
-                 className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#c25e00] focus:ring-1 focus:ring-[#c25e00] transition-colors text-center tracking-[0.5em] text-lg font-mono"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 autoFocus
-               />
+               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icons.Lock size={18} className="text-gray-500" /></div>
+               <input type="password" placeholder="PASSWORD" className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#c25e00] text-center tracking-[0.5em] text-lg font-mono" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
              </div>
-             
-             {loginError && (
-               <div className="text-red-400 text-xs text-center font-bold animate-pulse bg-red-400/10 py-2 rounded">
-                 {loginError}
-               </div>
-             )}
-             
-             <button 
-               type="submit"
-               className="w-full bg-[#c25e00] text-white py-3 rounded-lg font-bold tracking-[0.2em] hover:bg-[#a04d00] transition-all shadow-lg active:scale-95 text-sm"
-             >
-               LOGIN
-             </button>
+             {loginError && <div className="text-red-400 text-xs text-center font-bold animate-pulse bg-red-400/10 py-2 rounded">{loginError}</div>}
+             <button type="submit" className="w-full bg-[#c25e00] text-white py-3 rounded-lg font-bold tracking-[0.2em] hover:bg-[#a04d00] transition-all shadow-lg active:scale-95 text-sm">LOGIN</button>
            </form>
         </div>
         <p className="text-gray-600 text-[10px] mt-8 tracking-[0.3em] font-mono">© 2025 TILE PARK ADMIN</p>
@@ -403,210 +388,112 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen w-full bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
+    <div className="h-screen w-full bg-[#f8f9fa] md:bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
       
-      {/* Sidebar */}
-      <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 shadow-lg md:shadow-none">
-        <div className="p-3 md:p-6 flex items-center justify-between md:justify-start border-b border-gray-700 shrink-0">
+      {/* Sidebar (Desktop Only) */}
+      <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 hidden md:flex">
+        <div className="p-6 flex items-center justify-start border-b border-gray-700 shrink-0">
            <div className="flex items-center gap-3">
              <div className="flex flex-col leading-none">
-                <span className="font-bold text-white tracking-widest text-base md:text-lg">TILE PARK</span>
+                <span className="font-bold text-white tracking-widest text-lg">TILE PARK</span>
                 <span className="text-[10px] text-[#c25e00] tracking-[0.35em]">TAIWAN</span>
              </div>
-             <div className="h-6 w-px bg-gray-600 hidden sm:block"></div>
-             <span className="font-bold tracking-widest text-sm md:text-base text-gray-400 hidden sm:block">ADMIN</span>
+             <div className="h-6 w-px bg-gray-600"></div>
+             <span className="font-bold tracking-widest text-base text-gray-400">ADMIN</span>
            </div>
         </div>
-        
-        <nav className="p-2 md:p-4 md:flex-1 overflow-x-auto md:overflow-visible flex md:block gap-2 no-scrollbar shrink-0">
-          <button className="flex items-center gap-3 px-4 py-2 md:py-3 rounded md:rounded-lg bg-[#c25e00] text-white font-bold text-sm whitespace-nowrap md:w-full transition-transform active:scale-95 shadow-sm">
-            <Icons.FileText size={18} /> 
-            <span>訂單管理</span>
-          </button>
+        <nav className="p-4 flex-1">
+          <button className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#c25e00] text-white font-bold text-sm w-full shadow-sm"><Icons.FileText size={18} /> <span>訂單管理</span></button>
         </nav>
-
-        <div className="hidden md:block p-4 border-t border-gray-700 text-xs text-gray-500 text-center md:text-left shrink-0">
-          v2.1 Tabs
-        </div>
+        <div className="p-4 border-t border-gray-700 text-xs text-gray-500">v3.0 Mobile App</div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 bg-gray-100/50 relative">
-        <header className="bg-white border-b border-gray-200 p-3 md:p-4 flex flex-col gap-3 shrink-0 z-10 shadow-sm">
-          {/* Top Row: Title & Search */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div className="w-full sm:w-auto flex justify-between items-center">
-              <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                訂單列表 
-                <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">
-                  {filteredOrders.length}
-                </span>
-              </h1>
-            </div>
+      <main className="flex-1 flex flex-col min-h-0 bg-[#f8f9fa] md:bg-gray-100/50 relative">
+        
+        {/* Mobile Header (App Style) */}
+        <header className="bg-white border-b border-gray-100 p-4 md:hidden flex justify-between items-center z-10 shadow-sm sticky top-0">
+          <div className="flex flex-col leading-none">
+             <span className="font-bold text-gray-900 tracking-widest text-base">TILE PARK</span>
+             <span className="text-[9px] text-[#c25e00] tracking-[0.35em] font-bold">ADMIN</span>
+          </div>
+          <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-gray-600"><Icons.LogOut size={20} /></button>
+        </header>
 
-            <div className="flex w-full sm:w-auto gap-2">
-              <div className="relative flex-1 sm:w-64">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Icons.Search size={16} />
-                </span>
-                <input 
-                  type="text" 
-                  placeholder="搜尋單號、公司..." 
-                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c25e00]/30 focus:border-[#c25e00] text-sm transition-all"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <button 
-                onClick={fetchOrders} 
-                className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
-              >
-                <Icons.RefreshCw size={18} />
-              </button>
-              <button 
-                onClick={() => setIsLoggedIn(false)}
-                className="ml-2 text-xs text-gray-400 hover:text-red-500 underline decoration-dotted whitespace-nowrap"
-              >
-                登出
-              </button>
+        {/* Desktop Header */}
+        <header className="bg-white border-b border-gray-200 p-4 hidden md:flex flex-col gap-3 shrink-0 shadow-sm">
+          <div className="flex justify-between items-center gap-3">
+            <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">訂單列表 <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">{filteredOrders.length}</span></h1>
+            <div className="flex gap-2">
+              <div className="relative w-64"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Search size={16} /></span><input type="text" placeholder="搜尋..." className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c25e00]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+              <button onClick={fetchOrders} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"><Icons.RefreshCw size={18} /></button>
+              <button onClick={() => setIsLoggedIn(false)} className="ml-2 text-xs text-gray-400 hover:text-red-500 underline decoration-dotted">登出</button>
             </div>
           </div>
-
-          {/* 🔥 新增：篩選標籤列 (原本那排) */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'all', label: '全部顯示' },
-              { id: 'active', label: '進行中' },
-              { id: 'completed', label: '已完成' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${
-                  activeTab === tab.id 
-                    ? 'bg-[#222] text-white border-[#222]' 
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
+          <div className="flex gap-2">
+            {[ { id: 'all', label: '全部' }, { id: 'active', label: '進行中' }, { id: 'completed', label: '已完成' } ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${activeTab === tab.id ? 'bg-[#222] text-white border-[#222]' : 'bg-white text-gray-500 border-gray-200'}`}>{tab.label}</button>
             ))}
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-3 md:p-6 custom-scrollbar">
-          {errorMsg && (
-             <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 text-center text-sm border border-red-200">
-               {errorMsg}
-             </div>
-          )}
+        {/* Mobile Search & Tabs */}
+        <div className="md:hidden px-4 py-3 bg-white border-b border-gray-100 flex flex-col gap-3 shadow-sm sticky top-[60px] z-10">
+           <div className="relative">
+             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Search size={16} /></span>
+             <input type="text" placeholder="搜尋單號、公司..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#c25e00]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+           </div>
+           <div className="flex bg-gray-100 p-1 rounded-lg">
+             {[ { id: 'all', label: '全部' }, { id: 'active', label: '進行中' }, { id: 'completed', label: '已完成' } ].map(tab => (
+               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}>{tab.label}</button>
+             ))}
+           </div>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+          {errorMsg && <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 text-center text-sm border border-red-200">{errorMsg}</div>}
+          
           {loading && orders.length === 0 ? (
-             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-               <div className="w-8 h-8 border-4 border-gray-200 border-t-[#c25e00] rounded-full animate-spin mb-2"></div>
-               <p className="text-sm">連線試算表中...</p>
-             </div>
+             <div className="flex flex-col items-center justify-center h-64 text-gray-400"><div className="w-8 h-8 border-4 border-gray-200 border-t-[#c25e00] rounded-full animate-spin mb-2"></div><p className="text-sm">連線中...</p></div>
           ) : (
             <>
-              {/* Desktop Table View */}
+              {/* Desktop View */}
               <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-200">
-                    <tr>
-                      <th className="p-4 w-32 whitespace-nowrap">單號</th>
-                      <th className="p-4">訂購公司 / 聯絡人</th>
-                      <th className="p-4">送貨資訊</th>
-                      <th className="p-4">狀態管理 (庫存/排單)</th>
-                      <th className="p-4 text-right">操作</th>
-                    </tr>
+                    <tr><th className="p-4 w-32">單號</th><th className="p-4">公司</th><th className="p-4">送貨</th><th className="p-4">狀態</th><th className="p-4 text-right">操作</th></tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {/* 如果選「全部」，會自動分兩區顯示。如果選單一狀態，就只顯示那一區 */}
-                    
-                    {/* 進行中訂單 */}
-                    {activeList.map((order, idx) => (
-                      <OrderRow 
-                        key={order.orderId} 
-                        order={order} 
-                        onClick={() => setSelectedOrder(order)} 
-                        onStatusChange={handleStatusChange} 
-                        onDelete={handleDeleteOrder} 
-                        isCompleted={false}
-                      />
-                    ))}
-
-                    {/* 分隔線 (僅當「全部」且兩邊都有資料時顯示) */}
+                    {activeList.map((order) => <DesktopOrderRow key={order.orderId} order={order} onClick={setSelectedOrder} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} isCompleted={false} />)}
                     {activeTab === 'all' && activeList.length > 0 && completedList.length > 0 && (
-                      <tr className="bg-gray-100/50">
-                        <td colSpan="5" className="p-3 text-center text-xs font-bold text-gray-400 tracking-widest border-t border-b border-gray-200/50">
-                          已完成訂單 ({completedList.length})
-                        </td>
-                      </tr>
+                      <tr className="bg-gray-50/50"><td colSpan="5" className="p-3 text-center text-xs font-bold text-gray-400 border-t border-b border-gray-200/50">已完成訂單 ({completedList.length})</td></tr>
                     )}
-
-                    {/* 已完成訂單 */}
-                    {completedList.map((order, idx) => (
-                      <OrderRow 
-                        key={order.orderId} 
-                        order={order} 
-                        onClick={() => setSelectedOrder(order)} 
-                        onStatusChange={handleStatusChange} 
-                        onDelete={handleDeleteOrder} 
-                        isCompleted={true}
-                      />
-                    ))}
+                    {completedList.map((order) => <DesktopOrderRow key={order.orderId} order={order} onClick={setSelectedOrder} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} isCompleted={true} />)}
                   </tbody>
                 </table>
               </div>
 
-              {/* Mobile Card View */}
+              {/* Mobile View */}
               <div className="md:hidden pb-10">
-                {/* 進行中 */}
-                {activeList.map((order, idx) => (
-                  <OrderCard 
-                    key={order.orderId} 
-                    order={order} 
-                    onClick={() => setSelectedOrder(order)} 
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDeleteOrder}
-                    isCompleted={false}
-                  />
-                ))}
-
-                {/* 分隔線 */}
+                {activeList.map((order) => <MobileOrderCard key={order.orderId} order={order} onClick={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} isCompleted={false} />)}
+                
                 {activeTab === 'all' && activeList.length > 0 && completedList.length > 0 && (
-                  <div className="mt-8 mb-4 flex items-center justify-center gap-3">
-                    <div className="h-px bg-gray-300 w-12 opacity-50"></div>
-                    <span className="text-[10px] font-bold text-gray-400 tracking-widest">已完成訂單</span>
-                    <div className="h-px bg-gray-300 w-12 opacity-50"></div>
+                  <div className="mt-6 mb-4 flex items-center justify-center gap-3">
+                    <div className="h-px bg-gray-200 w-full"></div>
+                    <span className="text-[10px] font-bold text-gray-400 whitespace-nowrap">歷史訂單</span>
+                    <div className="h-px bg-gray-200 w-full"></div>
                   </div>
                 )}
 
-                {/* 已完成 */}
-                {completedList.map((order, idx) => (
-                  <OrderCard 
-                    key={order.orderId} 
-                    order={order} 
-                    onClick={() => setSelectedOrder(order)} 
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDeleteOrder}
-                    isCompleted={true}
-                  />
-                ))}
+                {completedList.map((order) => <MobileOrderCard key={order.orderId} order={order} onClick={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} isCompleted={true} />)}
               </div>
             </>
           )}
         </div>
       </main>
 
-      {selectedOrder && (
-        <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
-      )}
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+      {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+      <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
 }
