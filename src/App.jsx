@@ -160,19 +160,26 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // 🛠️ 強化抗快取 Fetch 邏輯
+  // 🛠️ 終極抗快取 Fetch 邏輯
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // 1. 強制加入隨機參數，繞過 Google Edge 快取
-      const cacheBuster = `nocache=${Date.now()}`;
+      // 1. 三重抗快取參數：確保網址在 Google 伺服器眼中是全新的
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 1000000);
+      const cacheBuster = `t=${timestamp}&r=${random}&_cache_free=${timestamp}`;
       const finalUrl = API_URL.includes('?') ? `${API_URL}&${cacheBuster}` : `${API_URL}?${cacheBuster}`;
       
-      // 2. 加入 cache: 'no-store' 請求標頭
+      // 2. 加入更嚴格的快取控制請求標頭
       const response = await fetch(finalUrl, { 
         method: 'GET',
-        cache: 'no-store',
+        cache: 'no-store', // 瀏覽器層級不存儲
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
         redirect: "follow" 
       });
       
@@ -192,8 +199,7 @@ export default function AdminDashboard() {
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       console.error("Fetch Error:", error);
-      setErrorMsg("讀取失敗：請檢查 Google Script 是否已正確發佈為「所有人」。");
-      setOrders([]);
+      setErrorMsg("讀取失敗：請檢查 Google Script 是否已正確發佈並設為「所有人」。");
     } finally {
       setLoading(false);
     }
@@ -237,7 +243,7 @@ export default function AdminDashboard() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4 font-sans text-gray-800">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
            <div className="flex flex-col items-center justify-center mb-8">
              <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
@@ -315,11 +321,11 @@ export default function AdminDashboard() {
             </div>
             <button 
               onClick={() => {
-                setOrders([]); // 🛠️ 點擊時先歸零，確保有刷新感
+                setOrders([]); // 🛠️ 關鍵：先歸零清空舊資料，確保重新抓取
                 fetchOrders();
               }} 
               className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
-              title="強制同步試算表資料"
+              title="強制同步試算表最新資料"
             >
               <Icons.RefreshCw size={18} />
             </button>
@@ -333,7 +339,7 @@ export default function AdminDashboard() {
           {loading && orders.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                <div className="w-8 h-8 border-4 border-gray-200 border-t-[#c25e00] rounded-full animate-spin mb-4"></div>
-               <p className="text-sm tracking-widest">正在強制同步試算表最新資料...</p>
+               <p className="text-sm tracking-widest font-bold">正在強制同步試算表資料，請稍候...</p>
              </div>
           ) : (
             <>
@@ -373,7 +379,8 @@ export default function AdminDashboard() {
               {filteredOrders.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-300">
                    <Icons.FileText size={48} className="mb-4 opacity-20" />
-                   <p>目前查無訂單，請確認試算表是否有資料。</p>
+                   <p className="font-bold">目前查無訂單，請確認試算表是否有資料。</p>
+                   <p className="text-xs mt-2">若是剛下單，請等待約 10 秒後再按重新整理。</p>
                 </div>
               )}
             </>
