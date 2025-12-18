@@ -100,11 +100,10 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
 
   if (!order) return null;
 
-  // 判斷當前勾選狀態
   const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
   const isShipped = order.status === '已排單出貨';
 
-  // 📋 一鍵複製功能
+  // 📋 強力複製功能 (支援 iframe 環境)
   const handleCopy = () => {
     const lines = [
       `【TILE PARK 訂單確認】`,
@@ -121,17 +120,42 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
     ];
     const textToCopy = lines.join('\n');
     
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(err => console.error('Copy failed', err));
+    // 嘗試使用現代 API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(() => fallbackCopy(textToCopy));
+    } else {
+        fallbackCopy(textToCopy);
+    }
+  };
+
+  // 傳統複製方法 (Fallback)
+  const fallbackCopy = (text) => {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed"; // 避免頁面滾動
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+          document.execCommand('copy');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+          console.error('Copy failed', err);
+          alert("複製失敗，請手動選取文字複製");
+      }
+      document.body.removeChild(textArea);
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
       <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
+        {/* Header - 這裡有複製按鈕 */}
         <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
           <div>
             <p className="text-xs text-gray-400 font-mono">ORDER ID</p>
@@ -154,7 +178,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
         {/* Content */}
         <div className="p-6 overflow-y-auto custom-scrollbar">
           
-          {/* 1. 狀態與操作區 */}
+          {/* 🌟 狀態與勾選區 (一定要顯示) */}
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">訂單流程:</span>
@@ -162,8 +186,8 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
               <span className="text-xs text-gray-400 font-mono ml-auto">Synced: {new Date().toLocaleDateString()}</span>
             </div>
             
-            {/* 🌟 勾選操作區 (Checkbox Area) */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-inner">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-sm">
+                {/* 庫存勾選 */}
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isStockConfirmed ? 'bg-teal-500 border-teal-500' : 'bg-white border-gray-300 hover:border-teal-400'}`}>
                         {isStockConfirmed && <Icons.Check size={20} className="text-white" strokeWidth={3} />}
@@ -184,6 +208,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
                 <div className="hidden sm:block w-px bg-gray-300 h-10 self-center"></div>
                 <div className="sm:hidden w-full h-px bg-gray-200"></div>
 
+                {/* 排單勾選 */}
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isShipped ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300 hover:border-blue-400'}`}>
                         {isShipped && <Icons.Check size={20} className="text-white" strokeWidth={3} />}
@@ -203,7 +228,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </div>
           </div>
 
-          {/* 2. 詳細資訊區 */}
+          {/* 詳細資訊 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <section>
               <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">客戶資訊</h3>
@@ -247,7 +272,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </div>
           </section>
 
-          {/* 3. 底部刪除區 (Danger Zone) */}
+          {/* 3. 底部刪除按鈕 (Danger Zone) */}
           <div className="pt-6 border-t border-gray-100 flex justify-end">
             <button 
                 onClick={() => {
@@ -303,7 +328,7 @@ const FloatingActionBar = ({ count, onDelete, onUpdateStatus, isProcessing }) =>
         <div className="w-px h-4 bg-gray-300 mx-1"></div>
 
         <button 
-          onClick={() => onDelete()} // 批量刪除不傳參數，會使用 selectedIds
+          onClick={() => onDelete()} 
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
         >
           <Icons.Trash2 size={16} />
@@ -331,8 +356,8 @@ export default function AdminDashboard() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [lastUpdated, setLastUpdated] = useState("");
 
+  // 自動載入 Tailwind CSS (解決排版跑掉問題)
   useEffect(() => {
-    // 檢查是否已載入 Tailwind，若無則動態加入 CDN (解決上傳後排版跑掉問題)
     if (!document.querySelector('script[src*="tailwindcss"]')) {
       const script = document.createElement('script');
       script.src = "https://cdn.tailwindcss.com";
@@ -463,11 +488,9 @@ export default function AdminDashboard() {
     });
 
     if (success) {
-        // 從 orders 中移除
         const newOrders = orders.filter(o => !idsToDelete.includes(o.orderId));
         setOrders(newOrders);
         
-        // 如果是批量刪除，清空勾選
         if (!ids) setSelectedIds(new Set());
 
         setTimeout(fetchOrders, 1000); 
