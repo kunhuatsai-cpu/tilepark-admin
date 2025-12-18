@@ -332,8 +332,15 @@ export default function AdminDashboard() {
   const [lastUpdated, setLastUpdated] = useState("");
 
   useEffect(() => {
-    // 模擬確認樣式載入 (Tailwind 通常在 index.html 引入)
-    setTimeout(() => setStyleLoaded(true), 300);
+    // 檢查是否已載入 Tailwind，若無則動態加入 CDN (解決上傳後排版跑掉問題)
+    if (!document.querySelector('script[src*="tailwindcss"]')) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.tailwindcss.com";
+      script.onload = () => setStyleLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      setStyleLoaded(true);
+    }
   }, []);
 
   const fetchOrders = useCallback(async () => {
