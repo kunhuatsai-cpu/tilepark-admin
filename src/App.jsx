@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // 🛑 Google Script 網址 - 確保這是您的最新部署網址 (exec 結尾)
+// 注意：如果您剛剛重新部署產生了新網址，請務必更換這裡！
 const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
 
 // --- 🛠️ 內建圖示 (SVG Components) ---
@@ -103,7 +104,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
   const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
   const isShipped = order.status === '已排單出貨';
 
-  // 📋 強力複製功能 (支援 iframe 環境)
+  // 📋 一鍵複製功能 (相容模式)
   const handleCopy = () => {
     const lines = [
       `【TILE PARK 訂單確認】`,
@@ -120,7 +121,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
     ];
     const textToCopy = lines.join('\n');
     
-    // 嘗試使用現代 API
+    // 優先嘗試現代 API，失敗則使用 fallback
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopied(true);
@@ -131,11 +132,10 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
     }
   };
 
-  // 傳統複製方法 (Fallback)
   const fallbackCopy = (text) => {
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      textArea.style.position = "fixed"; // 避免頁面滾動
+      textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       document.body.appendChild(textArea);
       textArea.focus();
@@ -146,7 +146,6 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
           setTimeout(() => setCopied(false), 2000);
       } catch (err) {
           console.error('Copy failed', err);
-          alert("複製失敗，請手動選取文字複製");
       }
       document.body.removeChild(textArea);
   };
@@ -155,7 +154,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
       <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header - 這裡有複製按鈕 */}
+        {/* Header */}
         <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
           <div>
             <p className="text-xs text-gray-400 font-mono">ORDER ID</p>
@@ -178,7 +177,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
         {/* Content */}
         <div className="p-6 overflow-y-auto custom-scrollbar">
           
-          {/* 🌟 狀態與勾選區 (一定要顯示) */}
+          {/* 🌟 勾選區 */}
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">訂單流程:</span>
@@ -186,8 +185,8 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
               <span className="text-xs text-gray-400 font-mono ml-auto">Synced: {new Date().toLocaleDateString()}</span>
             </div>
             
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-sm">
-                {/* 庫存勾選 */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-inner">
+                {/* 庫存 */}
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isStockConfirmed ? 'bg-teal-500 border-teal-500' : 'bg-white border-gray-300 hover:border-teal-400'}`}>
                         {isStockConfirmed && <Icons.Check size={20} className="text-white" strokeWidth={3} />}
@@ -208,7 +207,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
                 <div className="hidden sm:block w-px bg-gray-300 h-10 self-center"></div>
                 <div className="sm:hidden w-full h-px bg-gray-200"></div>
 
-                {/* 排單勾選 */}
+                {/* 排單 */}
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isShipped ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300 hover:border-blue-400'}`}>
                         {isShipped && <Icons.Check size={20} className="text-white" strokeWidth={3} />}
@@ -228,7 +227,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </div>
           </div>
 
-          {/* 詳細資訊 */}
+          {/* 訂單資訊 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <section>
               <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">客戶資訊</h3>
@@ -272,19 +271,20 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </div>
           </section>
 
-          {/* 3. 底部刪除按鈕 (Danger Zone) */}
+          {/* 🌟 底部刪除按鈕 */}
           <div className="pt-6 border-t border-gray-100 flex justify-end">
             <button 
                 onClick={() => {
-                    if (window.confirm('確定要刪除此訂單嗎？此操作無法復原。')) {
+                    if (window.confirm(`確定要刪除訂單 #${order.orderId} 嗎？\n⚠️ 此操作會同步刪除試算表中的資料，無法復原！`)) {
                         onDelete([order.orderId]);
                         onClose();
                     }
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                disabled={isProcessing}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Icons.Trash2 size={16} />
-                刪除此訂單
+                {isProcessing ? '刪除中...' : '刪除此訂單'}
             </button>
           </div>
 
@@ -356,7 +356,6 @@ export default function AdminDashboard() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [lastUpdated, setLastUpdated] = useState("");
 
-  // 自動載入 Tailwind CSS (解決排版跑掉問題)
   useEffect(() => {
     if (!document.querySelector('script[src*="tailwindcss"]')) {
       const script = document.createElement('script');
@@ -428,6 +427,7 @@ export default function AdminDashboard() {
   const sendCommandToBackend = async (payload) => {
     setIsProcessing(true);
     try {
+        // 使用 no-cors 模式發送
         await fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -436,7 +436,9 @@ export default function AdminDashboard() {
             },
             body: JSON.stringify(payload)
         });
-        return true;
+        
+        // no-cors 不會回傳 response，所以我們只能假設成功
+        return true; 
     } catch (err) {
         console.error("Backend Sync Error:", err);
         alert("同步至試算表失敗，請檢查網路或 Script 設定。");
@@ -473,27 +475,28 @@ export default function AdminDashboard() {
     }
   };
 
-  // 修改：支援單筆刪除
   const handleDelete = async (ids) => {
     const idsToDelete = ids || Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
 
-    // 若未傳入 ids，代表是批量刪除，需要詢問
-    // 若傳入 ids，代表是詳情頁刪除，已經詢問過了
+    // 如果是批量刪除(ids undefined)，彈出確認視窗
     if (!ids && !window.confirm(`確定要刪除這 ${idsToDelete.length} 筆訂單嗎？此操作將同步刪除試算表資料。`)) return;
     
+    // 發送刪除指令
     const success = await sendCommandToBackend({
         action: 'delete',
         ids: idsToDelete
     });
 
     if (success) {
+        // Optimistic UI Update: 先在前端刪除
         const newOrders = orders.filter(o => !idsToDelete.includes(o.orderId));
         setOrders(newOrders);
         
         if (!ids) setSelectedIds(new Set());
 
-        setTimeout(fetchOrders, 1000); 
+        // 稍微延遲後重新整理，確保後端資料一致
+        setTimeout(fetchOrders, 1500); 
     }
   };
 
@@ -522,7 +525,7 @@ export default function AdminDashboard() {
             setSelectedOrder(prev => ({ ...prev, status: newStatus }));
         }
 
-        setTimeout(fetchOrders, 1000);
+        setTimeout(fetchOrders, 1500);
     }
   };
 
