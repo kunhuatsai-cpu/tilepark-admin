@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// 🛑 Google Script 網址
+// 🛑 Google Script 網址 - ⚠️ 請務必確認此網址與您最新的「部署網址」一致
 const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
 
 // --- 🛠️ 內建圖示 ---
@@ -74,7 +74,7 @@ const OrderCard = ({ order, onClick }) => (
 const OrderDetailModal = ({ order, onClose }) => {
   if (!order) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
       <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
           <div>
@@ -87,18 +87,6 @@ const OrderDetailModal = ({ order, onClose }) => {
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar">
-          <div className="flex flex-wrap gap-4 justify-between items-center mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-500">狀態:</span>
-              <StatusBadge />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => window.print()} className="px-3 py-1.5 text-xs font-bold bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700">
-                列印單據
-              </button>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <section>
               <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">客戶資訊</h3>
@@ -149,11 +137,16 @@ const OrderDetailModal = ({ order, onClose }) => {
 
 export default function AdminDashboard() {
   const [styleLoaded, setStyleLoaded] = useState(false);
-  
-  // --- 登入相關狀態 ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState("");
 
   // 自動注入 Tailwind CSS
   useEffect(() => {
@@ -167,23 +160,22 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
-
-  // 🛠️ 修正：加入抗快取機制 (Cache Buster)
+  // 🛠️ 強化抗快取 Fetch 邏輯
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // 在 URL 後面加上時間戳記，強迫 Google 回傳最新資料
-      const cacheBuster = `t=${Date.now()}`;
+      // 1. 強制加入隨機參數，繞過 Google Edge 快取
+      const cacheBuster = `nocache=${Date.now()}`;
       const finalUrl = API_URL.includes('?') ? `${API_URL}&${cacheBuster}` : `${API_URL}?${cacheBuster}`;
       
-      const response = await fetch(finalUrl, { redirect: "follow" });
+      // 2. 加入 cache: 'no-store' 請求標頭
+      const response = await fetch(finalUrl, { 
+        method: 'GET',
+        cache: 'no-store',
+        redirect: "follow" 
+      });
+      
       if (!response.ok) throw new Error("網路連線錯誤");
       const data = await response.json();
       
@@ -197,21 +189,18 @@ export default function AdminDashboard() {
 
       setOrders(processedData);
       setFilteredOrders(processedData);
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       console.error("Fetch Error:", error);
-      setErrorMsg("讀取失敗：請確認 Google Script 網址正確，且已重新部署。");
+      setErrorMsg("讀取失敗：請檢查 Google Script 是否已正確發佈為「所有人」。");
       setOrders([]);
-      setFilteredOrders([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // 🛠️ 修正：只在登入成功後觸發一次讀取
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchOrders();
-    }
+    if (isLoggedIn) fetchOrders();
   }, [isLoggedIn, fetchOrders]);
 
   useEffect(() => {
@@ -233,35 +222,28 @@ export default function AdminDashboard() {
       setIsLoggedIn(true);
       setLoginError("");
     } else {
-      setLoginError("密碼錯誤，請重新輸入");
+      setLoginError("密碼錯誤");
       setPassword("");
     }
   };
 
   if (!styleLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#222] text-gray-500">
-        <div className="flex flex-col items-center gap-2">
-           <div className="w-8 h-8 border-4 border-white/20 border-t-[#c25e00] rounded-full animate-spin"></div>
-           <p className="text-sm text-gray-400 tracking-widest">LOADING SYSTEM...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#222]">
+        <div className="w-8 h-8 border-4 border-white/20 border-t-[#c25e00] rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  // --- 登入畫面 ---
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4 font-sans">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
            <div className="flex flex-col items-center justify-center mb-8">
              <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
              <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
              <span className="text-sm text-gray-400 tracking-[0.5em]">TAIWAN</span>
            </div>
-           
-           <h2 className="text-white/80 text-center text-sm font-bold mb-6 tracking-[0.2em] font-mono">ADMIN ACCESS</h2>
-           
            <form onSubmit={handleLogin} className="space-y-5">
              <div className="relative">
                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -270,29 +252,16 @@ export default function AdminDashboard() {
                <input 
                  type="password" 
                  placeholder="PASSWORD"
-                 className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#c25e00] focus:ring-1 focus:ring-[#c25e00] transition-colors text-center tracking-[0.5em] text-lg font-mono"
+                 className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#c25e00] text-center tracking-[0.5em] text-lg font-mono"
                  value={password}
                  onChange={(e) => setPassword(e.target.value)}
                  autoFocus
                />
              </div>
-             
-             {loginError && (
-               <div className="text-red-400 text-xs text-center font-bold animate-pulse bg-red-400/10 py-2 rounded">
-                 {loginError}
-               </div>
-             )}
-             
-             <button 
-               type="submit"
-               className="w-full bg-[#c25e00] text-white py-3 rounded-lg font-bold tracking-[0.2em] hover:bg-[#a04d00] transition-all shadow-lg active:scale-95 text-sm"
-             >
-               LOGIN
-             </button>
+             {loginError && <div className="text-red-400 text-xs text-center font-bold">{loginError}</div>}
+             <button type="submit" className="w-full bg-[#c25e00] text-white py-3 rounded-lg font-bold tracking-[0.2em] hover:bg-[#a04d00] transition-all">LOGIN</button>
            </form>
         </div>
-        <p className="text-gray-600 text-[10px] mt-8 tracking-[0.3em] font-mono">© 2025 TILE PARK ADMIN</p>
-        
         <style>{`
           .animate-fade-in { animation: fadeIn 0.5s ease-out; }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -301,46 +270,34 @@ export default function AdminDashboard() {
     );
   }
 
-  // --- 後台主畫面 ---
   return (
     <div className="h-screen w-full bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
       
-      {/* Sidebar / Mobile Header */}
       <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 shadow-lg md:shadow-none">
-        <div className="p-3 md:p-6 flex items-center justify-between md:justify-start border-b border-gray-700 shrink-0">
-           <div className="flex items-center gap-3">
-             <div className="flex flex-col leading-none">
-                <span className="font-bold text-white tracking-widest text-base md:text-lg">TILE PARK</span>
-                <span className="text-[10px] text-[#c25e00] tracking-[0.35em]">TAIWAN</span>
-             </div>
-             <div className="h-6 w-px bg-gray-600 hidden sm:block"></div>
-             <span className="font-bold tracking-widest text-sm md:text-base text-gray-400 hidden sm:block">ADMIN</span>
+        <div className="p-4 md:p-6 border-b border-gray-700">
+           <div className="flex flex-col leading-none">
+              <span className="font-bold text-white tracking-widest text-lg">TILE PARK</span>
+              <span className="text-[10px] text-[#c25e00] tracking-[0.35em] mt-1">ADMIN</span>
            </div>
         </div>
         
-        <nav className="p-2 md:p-4 md:flex-1 overflow-x-auto md:overflow-visible flex md:block gap-2 no-scrollbar shrink-0">
-          <button className="flex items-center gap-3 px-4 py-2 md:py-3 rounded md:rounded-lg bg-[#c25e00] text-white font-bold text-sm whitespace-nowrap md:w-full transition-transform active:scale-95 shadow-sm">
+        <nav className="p-4 flex-1">
+          <button className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#c25e00] text-white font-bold text-sm w-full transition-transform active:scale-95">
             <Icons.FileText size={18} /> 
             <span>訂單管理</span>
           </button>
         </nav>
 
-        <div className="hidden md:block p-4 border-t border-gray-700 text-xs text-gray-500 text-center md:text-left shrink-0">
-          v1.6 LiveSync
+        <div className="p-4 border-t border-gray-700 text-[10px] text-gray-500 font-mono">
+          Last Sync: {lastUpdated || "Never"}
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 bg-gray-100/50 relative">
-        {/* Topbar */}
-        <header className="bg-white border-b border-gray-200 p-3 md:p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 z-10 shadow-sm">
-          <div className="w-full sm:w-auto flex justify-between items-center">
-            <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              訂單列表 
-              <span className="bg-[#c25e00]/10 text-[#c25e00] text-xs px-2 py-0.5 rounded-full font-mono">
-                {filteredOrders.length}
-              </span>
-            </h1>
+      <main className="flex-1 flex flex-col min-h-0 relative">
+        <header className="bg-white border-b border-gray-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 z-10 shadow-sm">
+          <div className="w-full sm:w-auto flex items-center gap-3">
+            <h1 className="text-lg font-bold text-gray-800">訂單列表</h1>
+            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full font-mono">{filteredOrders.length}</span>
           </div>
 
           <div className="flex w-full sm:w-auto gap-2">
@@ -350,92 +307,75 @@ export default function AdminDashboard() {
               </span>
               <input 
                 type="text" 
-                placeholder="搜尋單號、公司..." 
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c25e00]/30 focus:border-[#c25e00] text-sm transition-all"
+                placeholder="搜尋單號或公司..." 
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c25e00] transition-all font-sans"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <button 
-              onClick={fetchOrders} 
+              onClick={() => {
+                setOrders([]); // 🛠️ 點擊時先歸零，確保有刷新感
+                fetchOrders();
+              }} 
               className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
+              title="強制同步試算表資料"
             >
               <Icons.RefreshCw size={18} />
             </button>
-            {/* 登出按鈕 */}
-            <button 
-              onClick={() => setIsLoggedIn(false)}
-              className="ml-2 text-xs text-gray-400 hover:text-red-500 underline decoration-dotted"
-            >
-              登出
-            </button>
+            <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-red-500 p-2"><Icons.X size={18}/></button>
           </div>
         </header>
 
-        {/* Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-6 custom-scrollbar">
-          {errorMsg && (
-             <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 text-center text-sm border border-red-200">
-               {errorMsg}
-             </div>
-          )}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+          {errorMsg && <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 text-center text-sm border border-red-200">{errorMsg}</div>}
 
           {loading && orders.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-               <div className="w-8 h-8 border-4 border-gray-200 border-t-[#c25e00] rounded-full animate-spin mb-2"></div>
-               <p className="text-sm">連線試算表中...</p>
+               <div className="w-8 h-8 border-4 border-gray-200 border-t-[#c25e00] rounded-full animate-spin mb-4"></div>
+               <p className="text-sm tracking-widest">正在強制同步試算表最新資料...</p>
              </div>
           ) : (
             <>
-              {/* Desktop Table View */}
+              {/* Desktop View */}
               <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left font-sans">
                   <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-200">
                     <tr>
-                      <th className="p-4 w-32 whitespace-nowrap">單號</th>
-                      <th className="p-4">訂購公司 / 聯絡人</th>
-                      <th className="p-4">送貨資訊</th>
-                      <th className="p-4">訂購摘要</th>
-                      <th className="p-4 text-right">操作</th>
+                      <th className="p-4">單號</th>
+                      <th className="p-4">客戶 / 聯絡人</th>
+                      <th className="p-4">送貨日期</th>
+                      <th className="p-4">內容摘要</th>
+                      <th className="p-4 text-right">詳情</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredOrders.map((order, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => setSelectedOrder(order)}>
-                        <td className="p-4 font-mono font-medium text-[#c25e00] group-hover:text-[#a04d00]">{order.orderId}</td>
-                        <td className="p-4">
-                          <div className="font-bold text-gray-800">{order.company}</div>
-                          <div className="text-xs text-gray-500">{order.contact} • {order.orderType}</div>
-                        </td>
-                        <td className="p-4">
-                          <div className="text-gray-800 font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</div>
-                          <div className="text-xs text-gray-500">{order.deliveryTime}</div>
-                        </td>
-                        <td className="p-4 text-gray-500 text-xs truncate max-w-[200px]">
-                           {order.parsedItems && order.parsedItems[0]} 
-                           {order.parsedItems.length > 1 && `... (+${order.parsedItems.length-1})`}
-                        </td>
-                        <td className="p-4 text-right">
-                          <span className="text-gray-400 hover:text-[#c25e00] text-xs font-bold underline decoration-dotted underline-offset-4">查看詳情</span>
-                        </td>
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                        <td className="p-4 font-mono font-bold text-[#c25e00]">{order.orderId}</td>
+                        <td className="p-4 font-bold text-gray-800">{order.company}</td>
+                        <td className="p-4">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</td>
+                        <td className="p-4 text-gray-400 text-xs truncate max-w-[150px]">{order.parsedItems[0] || '無'}</td>
+                        <td className="p-4 text-right"><span className="text-xs text-gray-300 underline underline-offset-4 font-bold">VIEW</span></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {filteredOrders.length === 0 && !loading && (
-                  <div className="p-12 text-center text-gray-400 text-sm">目前沒有任何訂單記錄</div>
-                )}
               </div>
 
-              {/* Mobile Card View */}
+              {/* Mobile View */}
               <div className="md:hidden pb-10">
                 {filteredOrders.map((order, idx) => (
                   <OrderCard key={idx} order={order} onClick={() => setSelectedOrder(order)} />
                 ))}
-                {filteredOrders.length === 0 && !loading && (
-                  <div className="p-12 text-center text-gray-400 text-sm">目前沒有任何訂單記錄</div>
-                )}
               </div>
+              
+              {filteredOrders.length === 0 && !loading && (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-300">
+                   <Icons.FileText size={48} className="mb-4 opacity-20" />
+                   <p>目前查無訂單，請確認試算表是否有資料。</p>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -445,15 +385,11 @@ export default function AdminDashboard() {
         <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
 
-      {/* 隱藏卷軸 CSS */}
       <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );
