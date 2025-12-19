@@ -123,9 +123,10 @@ const OrderCard = ({ order, isSelected, onSelect, onClick }) => {
 const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
   const [copied, setCopied] = useState(false);
   
-  // 本地狀態，用於編輯註記和 ETA
+  // 本地狀態，用於編輯註記、ETA 和 送貨日期
   const [internalNote, setInternalNote] = useState(order.internalNote || '');
   const [factoryEta, setFactoryEta] = useState(order.factoryEta || '');
+  const [deliveryDate, setDeliveryDate] = useState(order.deliveryDate ? order.deliveryDate.split('T')[0] : '');
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -141,7 +142,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
       `【TILE PARK ${isReservation ? '保留單' : '訂單'}確認】`,
       `單號：${order.orderId}`,
       `客戶：${order.company} (${order.contact})`,
-      `${isReservation ? '預計出貨' : '送貨'}：${order.deliveryDate ? order.deliveryDate.split('T')[0] : ''} ${order.deliveryTime}`,
+      `${isReservation ? '預計出貨' : '送貨'}：${deliveryDate} ${order.deliveryTime}`,
       `地址：${order.address}`,
       ``,
       `${isReservation ? '保留' : '訂購'}內容：`,
@@ -182,7 +183,8 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
       setIsSavingDetails(true);
       setSaveSuccess(false);
       
-      const success = await onUpdateDetails(order.orderId, { internalNote, factoryEta });
+      // 包含 deliveryDate 一起更新
+      const success = await onUpdateDetails(order.orderId, { internalNote, factoryEta, deliveryDate });
       
       setIsSavingDetails(false);
       if (success) {
@@ -295,17 +297,6 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
                     />
                 </div>
             </div>
-
-            <div className="mt-4 flex justify-end">
-                <button 
-                    onClick={handleSaveDetails}
-                    disabled={isSavingDetails}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-sm ${saveSuccess ? 'bg-green-600' : 'bg-amber-600 hover:bg-amber-700'}`}
-                >
-                    {isSavingDetails ? <Icons.Loader size={16} className="animate-spin" /> : saveSuccess ? <Icons.Check size={16} /> : <Icons.Save size={16} />}
-                    {isSavingDetails ? '儲存中...' : saveSuccess ? '已更新' : '儲存註記'}
-                </button>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -322,7 +313,16 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
             <section>
               <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>配送資訊 (客戶端)</h3>
               <div className="space-y-2 text-sm text-gray-700">
-                <p><span className="text-gray-400 w-16 inline-block">日期:</span> <span className="font-bold">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span></p>
+                <div className="flex items-center gap-2">
+                    <span className="text-gray-400 w-16 inline-block shrink-0">日期:</span> 
+                    <input 
+                        type="date" 
+                        value={deliveryDate} 
+                        onChange={e => setDeliveryDate(e.target.value)}
+                        className="font-bold border-b border-gray-300 focus:border-[#c25e00] outline-none bg-transparent text-gray-800"
+                    />
+                    <span className="text-[10px] text-gray-400 ml-1 opacity-70">(修改後請按儲存)</span>
+                </div>
                 <p><span className="text-gray-400 w-16 inline-block">時段:</span> {order.deliveryTime}</p>
                 <p><span className="text-gray-400 w-16 inline-block">地址:</span> {order.address}</p>
               </div>
@@ -351,7 +351,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
             </div>
           </section>
 
-          <div className="pt-6 border-t border-gray-100 flex justify-end">
+          <div className="pt-6 border-t border-gray-100 flex justify-between items-center">
             <button 
                 onClick={() => {
                     if (window.confirm(`確定要刪除訂單 #${order.orderId} 嗎？\n⚠️ 此操作會同步刪除試算表中的資料，無法復原！`)) {
@@ -364,6 +364,15 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
             >
                 <Icons.Trash2 size={16} />
                 {isProcessing ? '刪除中...' : '刪除此訂單'}
+            </button>
+            
+            <button 
+                onClick={handleSaveDetails}
+                disabled={isSavingDetails}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-all shadow-md active:scale-95 ${saveSuccess ? 'bg-green-600' : 'bg-[#c25e00] hover:bg-[#a04d00]'}`}
+            >
+                {isSavingDetails ? <Icons.Loader size={16} className="animate-spin" /> : saveSuccess ? <Icons.Check size={16} /> : <Icons.Save size={16} />}
+                {isSavingDetails ? '儲存中...' : saveSuccess ? '已更新成功' : '儲存所有變更'}
             </button>
           </div>
 
@@ -478,7 +487,8 @@ export default function AdminDashboard() {
         isReservation: item.orderType && item.orderType.includes('保留庫存'),
         // 確保新欄位有初始值
         internalNote: item.internalNote || '',
-        factoryEta: item.factoryEta || ''
+        factoryEta: item.factoryEta || '',
+        deliveryDate: item.deliveryDate || ''
       }));
 
       setOrders(processedData);
@@ -620,12 +630,12 @@ export default function AdminDashboard() {
     }
   };
 
-  // 處理更新工廠/內部註記
+  // 處理更新工廠/內部註記/送貨日期
   const handleUpdateDetails = async (orderId, details) => {
     const success = await sendCommandToBackend({
         action: 'updateDetails',
         orderId: orderId,
-        ...details // 包含 internalNote, factoryEta
+        ...details // 包含 internalNote, factoryEta, deliveryDate
     });
 
     if (success) {
