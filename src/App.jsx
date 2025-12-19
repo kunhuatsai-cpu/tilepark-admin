@@ -36,7 +36,9 @@ const Icons = {
   Check: (props) => <Icon {...props} path={<><polyline points="20 6 9 17 4 12" /></>} />,
   Copy: (props) => <Icon {...props} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
   Archive: (props) => <Icon {...props} path={<><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></>} />,
-  Filter: (props) => <Icon {...props} path={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />
+  Filter: (props) => <Icon {...props} path={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
+  Factory: (props) => <Icon {...props} path={<><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><line x1="17" x2="17" y1="13" y2="22"/><line x1="7" x2="7" y1="13" y2="22"/></>} />,
+  Save: (props) => <Icon {...props} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>} />
 };
 
 // --- Sub-Components ---
@@ -101,6 +103,13 @@ const OrderCard = ({ order, isSelected, onSelect, onClick }) => {
           <Icons.Package size={14} className="text-gray-400 mt-0.5" /> 
           <span className="line-clamp-2">{order.parsedItems.join(', ')}</span>
         </div>
+        {/* 若有工廠 ETA 顯示提示 */}
+        {order.factoryEta && (
+           <div className="flex items-center gap-2 text-amber-600 text-xs font-bold border-t border-gray-200 pt-1 mt-1">
+             <Icons.Factory size={12} />
+             <span>工廠 ETA: {order.factoryEta.split('T')[0]}</span>
+           </div>
+        )}
       </div>
 
       <div onClick={onClick} className="flex justify-between items-center text-xs text-gray-400 font-medium cursor-pointer">
@@ -111,9 +120,16 @@ const OrderCard = ({ order, isSelected, onSelect, onClick }) => {
   );
 };
 
-const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessing }) => {
+const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
   const [copied, setCopied] = useState(false);
+  
+  // 本地狀態，用於編輯註記和 ETA
+  const [internalNote, setInternalNote] = useState(order.internalNote || '');
+  const [factoryEta, setFactoryEta] = useState(order.factoryEta || '');
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // 避免 undefined
   if (!order) return null;
 
   const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
@@ -162,9 +178,22 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
       document.body.removeChild(textArea);
   };
 
+  const handleSaveDetails = async () => {
+      setIsSavingDetails(true);
+      setSaveSuccess(false);
+      
+      const success = await onUpdateDetails(order.orderId, { internalNote, factoryEta });
+      
+      setIsSavingDetails(false);
+      if (success) {
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+      }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
-      <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         
         <div className={`${isReservation ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0`}>
           <div>
@@ -197,6 +226,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
               <span className="text-xs text-gray-400 font-mono ml-auto">Synced: {new Date().toLocaleDateString()}</span>
             </div>
             
+            {/* 狀態切換按鈕區 */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-inner">
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isStockConfirmed ? 'bg-teal-500 border-teal-500' : 'bg-white border-gray-300 hover:border-teal-400'}`}>
@@ -235,16 +265,47 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
                     />
                 </label>
             </div>
+          </div>
+          
+          {/* 🏭 工廠排程與註記 (新功能) */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-6 relative group transition-all hover:shadow-md">
+            <h3 className="text-sm font-bold text-amber-800 mb-4 flex items-center gap-2">
+                <Icons.Factory size={18}/> 
+                工廠排程與內部註記 (後台專用)
+            </h3>
             
-            {isReservation && (
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-600 flex items-start gap-2">
-                    <Icons.Archive size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                        <span className="font-bold block mb-1">保留單注意事項</span>
-                        此為保留庫存需求，系統保留期限原則上為一個月。若庫存緊張，請優先分配給已確認之正式訂單。
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="text-xs text-amber-900/70 font-bold mb-1 block">預計到港/到貨日 (Factory ETA)</label>
+                    <input 
+                        type="date" 
+                        value={factoryEta} 
+                        onChange={e => setFactoryEta(e.target.value)} 
+                        className="w-full p-2 border border-amber-300 rounded text-sm bg-white focus:ring-2 focus:ring-amber-400 outline-none"
+                    />
+                    <p className="text-[10px] text-amber-600/80 mt-1">*供內部查詢，不直接顯示於前台訂單</p>
                 </div>
-            )}
+                <div className="md:col-span-2">
+                    <label className="text-xs text-amber-900/70 font-bold mb-1 block">內部備忘錄 (Internal Note)</label>
+                    <textarea 
+                        value={internalNote} 
+                        onChange={e => setInternalNote(e.target.value)} 
+                        className="w-full p-2 border border-amber-300 rounded text-sm h-20 focus:ring-2 focus:ring-amber-400 outline-none resize-none"
+                        placeholder="在此輸入：貨櫃號碼、工廠延遲原因、保留期限等內部資訊..."
+                    />
+                </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+                <button 
+                    onClick={handleSaveDetails}
+                    disabled={isSavingDetails}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-sm ${saveSuccess ? 'bg-green-600' : 'bg-amber-600 hover:bg-amber-700'}`}
+                >
+                    {isSavingDetails ? <Icons.Loader size={16} className="animate-spin" /> : saveSuccess ? <Icons.Check size={16} /> : <Icons.Save size={16} />}
+                    {isSavingDetails ? '儲存中...' : saveSuccess ? '已更新' : '儲存註記'}
+                </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -259,7 +320,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </section>
 
             <section>
-              <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>配送資訊</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>配送資訊 (客戶端)</h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <p><span className="text-gray-400 w-16 inline-block">日期:</span> <span className="font-bold">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span></p>
                 <p><span className="text-gray-400 w-16 inline-block">時段:</span> {order.deliveryTime}</p>
@@ -414,7 +475,10 @@ export default function AdminDashboard() {
         contact: item.contact || '未知聯絡人',
         status: item.status || '已接收',
         // 辨識是否為保留單
-        isReservation: item.orderType && item.orderType.includes('保留庫存')
+        isReservation: item.orderType && item.orderType.includes('保留庫存'),
+        // 確保新欄位有初始值
+        internalNote: item.internalNote || '',
+        factoryEta: item.factoryEta || ''
       }));
 
       setOrders(processedData);
@@ -449,7 +513,8 @@ export default function AdminDashboard() {
       result = result.filter(o => 
         (o.company && o.company.toLowerCase().includes(term)) || 
         (o.orderId && o.orderId.toLowerCase().includes(term)) ||
-        (o.contact && o.contact.toLowerCase().includes(term))
+        (o.contact && o.contact.toLowerCase().includes(term)) ||
+        (o.internalNote && o.internalNote.toLowerCase().includes(term)) // 支援搜尋內部註記
       );
     }
     setFilteredOrders(result);
@@ -555,6 +620,26 @@ export default function AdminDashboard() {
     }
   };
 
+  // 處理更新工廠/內部註記
+  const handleUpdateDetails = async (orderId, details) => {
+    const success = await sendCommandToBackend({
+        action: 'updateDetails',
+        orderId: orderId,
+        ...details // 包含 internalNote, factoryEta
+    });
+
+    if (success) {
+        // 更新本地狀態
+        setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, ...details } : o));
+        
+        if (selectedOrder && selectedOrder.orderId === orderId) {
+            setSelectedOrder(prev => ({ ...prev, ...details }));
+        }
+        return true;
+    }
+    return false;
+  };
+
   if (!styleLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#222]">
@@ -639,7 +724,7 @@ export default function AdminDashboard() {
                   </span>
                   <input 
                     type="text" 
-                    placeholder="搜尋單號或公司..." 
+                    placeholder="搜尋單號、公司或內部註記..." 
                     className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c25e00] transition-all font-sans"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -742,15 +827,21 @@ export default function AdminDashboard() {
                             />
                           </td>
                           <td className="p-4">
-                              <div className="flex items-center">
-                                  <span className={`font-mono font-bold ${isReservation ? 'text-blue-600' : 'text-[#c25e00]'}`}>{order.orderId}</span>
-                                  {isReservation && <ReservationBadge />}
+                              <div className="flex flex-col">
+                                  <div className="flex items-center">
+                                    <span className={`font-mono font-bold ${isReservation ? 'text-blue-600' : 'text-[#c25e00]'}`}>{order.orderId}</span>
+                                    {isReservation && <ReservationBadge />}
+                                  </div>
+                                  {order.factoryEta && <span className="text-[10px] text-amber-600 font-bold mt-0.5">ETA: {order.factoryEta.split('T')[0]}</span>}
                               </div>
                           </td>
                           <td className="p-4"><StatusBadge status={order.status} /></td>
                           <td className="p-4 font-bold text-gray-800">{order.company}</td>
                           <td className="p-4">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</td>
-                          <td className="p-4 text-gray-400 text-xs truncate max-w-[150px]">{order.parsedItems[0] || '無'}</td>
+                          <td className="p-4 text-gray-400 text-xs truncate max-w-[150px]">
+                              {order.internalNote ? <span className="text-amber-600 mr-1">[註]</span> : null}
+                              {order.parsedItems[0] || '無'}
+                          </td>
                           <td className="p-4 text-right"><span className="text-xs text-gray-300 underline underline-offset-4 font-bold">VIEW</span></td>
                         </tr>
                       );
@@ -798,6 +889,7 @@ export default function AdminDashboard() {
             order={selectedOrder} 
             onClose={() => setSelectedOrder(null)} 
             onUpdateStatus={handleStatusUpdate}
+            onUpdateDetails={handleUpdateDetails}
             onDelete={handleDelete}
             isProcessing={isProcessing}
         />
