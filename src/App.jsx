@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// 🛑 Google Script 網址 - 請確認您第二步部署後的網址
+// 🛑 Google Script 網址 - 應與前台系統使用同一個
 const API_URL = "https://script.google.com/macros/s/AKfycbyq0KVfpLLIzRUJ5w_rFqZq4C8p97LJOGAU5OkWwts1012zB6-sJIehrtyNLjXepfm5/exec";
 
 // --- 🛠️ 內建圖示 ---
@@ -34,7 +34,9 @@ const Icons = {
   Truck: (props) => <Icon {...props} path={<><rect x="1" y="3" width="15" height="13" rx="2" ry="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
   Loader: (props) => <Icon {...props} path={<><path d="M21 12a9 9 0 1 1-6.219-8.56" /></>} />,
   Check: (props) => <Icon {...props} path={<><polyline points="20 6 9 17 4 12" /></>} />,
-  Copy: (props) => <Icon {...props} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />
+  Copy: (props) => <Icon {...props} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
+  Archive: (props) => <Icon {...props} path={<><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></>} />,
+  Filter: (props) => <Icon {...props} path={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />
 };
 
 // --- Sub-Components ---
@@ -51,49 +53,63 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const OrderCard = ({ order, isSelected, onSelect, onClick }) => (
-  <div 
-    className={`bg-white p-4 rounded-lg shadow-sm border mb-3 transition-colors relative ${isSelected ? 'border-[#c25e00] ring-1 ring-[#c25e00] bg-orange-50' : 'border-gray-200'}`}
-  >
-    <div className="flex justify-between items-start mb-2">
-      <div className="flex items-center gap-3">
-        <input 
-          type="checkbox" 
-          checked={isSelected}
-          onChange={(e) => {
-            e.stopPropagation();
-            onSelect(order.orderId);
-          }}
-          className="w-5 h-5 rounded border-gray-300 text-[#c25e00] focus:ring-[#c25e00]"
-        />
-        <div className="flex flex-col" onClick={onClick}>
-          <span className="font-mono text-xs text-[#c25e00] font-bold">#{order.orderId}</span>
-          <h3 className="font-bold text-gray-800 text-base">{order.company}</h3>
+const ReservationBadge = () => (
+    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 ml-2 whitespace-nowrap">
+        <Icons.Archive size={10} /> 保留
+    </span>
+);
+
+const OrderCard = ({ order, isSelected, onSelect, onClick }) => {
+  const isReservation = order.isReservation;
+  
+  return (
+    <div 
+      className={`bg-white p-4 rounded-lg shadow-sm border mb-3 transition-colors relative 
+        ${isSelected ? 'border-[#c25e00] ring-1 ring-[#c25e00] bg-orange-50' : isReservation ? 'border-blue-200 bg-blue-50/10' : 'border-gray-200'}`}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-3">
+          <input 
+            type="checkbox" 
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onSelect(order.orderId);
+            }}
+            className="w-5 h-5 rounded border-gray-300 text-[#c25e00] focus:ring-[#c25e00]"
+          />
+          <div className="flex flex-col" onClick={onClick}>
+            <div className="flex items-center">
+                <span className={`font-mono text-xs font-bold mr-1 ${isReservation ? 'text-blue-600' : 'text-[#c25e00]'}`}>#{order.orderId}</span>
+                {isReservation && <ReservationBadge />}
+            </div>
+            <h3 className="font-bold text-gray-800 text-base">{order.company}</h3>
+          </div>
+        </div>
+        <div onClick={onClick}>
+          <StatusBadge status={order.status} />
         </div>
       </div>
-      <div onClick={onClick}>
-        <StatusBadge status={order.status} />
+      
+      <div onClick={onClick} className="text-sm text-gray-600 space-y-1.5 mb-3 bg-gray-50 p-2 rounded border border-gray-100 cursor-pointer">
+        <div className="flex items-center gap-2">
+          <Icons.Clock size={14} className="text-gray-400" /> 
+          <span className="font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
+          <span className="text-gray-400 text-xs">({order.deliveryTime})</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Icons.Package size={14} className="text-gray-400 mt-0.5" /> 
+          <span className="line-clamp-2">{order.parsedItems.join(', ')}</span>
+        </div>
       </div>
-    </div>
-    
-    <div onClick={onClick} className="text-sm text-gray-600 space-y-1.5 mb-3 bg-gray-50 p-2 rounded border border-gray-100 cursor-pointer">
-      <div className="flex items-center gap-2">
-        <Icons.Clock size={14} className="text-gray-400" /> 
-        <span className="font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
-        <span className="text-gray-400 text-xs">({order.deliveryTime})</span>
-      </div>
-      <div className="flex items-start gap-2">
-        <Icons.Package size={14} className="text-gray-400 mt-0.5" /> 
-        <span className="line-clamp-2">{order.parsedItems.join(', ')}</span>
-      </div>
-    </div>
 
-    <div onClick={onClick} className="flex justify-between items-center text-xs text-gray-400 font-medium cursor-pointer">
-      <span>{order.contact}</span>
-      <span>{order.timestamp ? new Date(order.timestamp).toLocaleDateString() : ''}</span>
+      <div onClick={onClick} className="flex justify-between items-center text-xs text-gray-400 font-medium cursor-pointer">
+        <span>{order.contact}</span>
+        <span>{order.timestamp ? new Date(order.timestamp).toLocaleDateString() : ''}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessing }) => {
   const [copied, setCopied] = useState(false);
@@ -102,16 +118,17 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
 
   const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
   const isShipped = order.status === '已排單出貨';
+  const isReservation = order.isReservation;
 
   const handleCopy = () => {
     const lines = [
-      `【TILE PARK 訂單確認】`,
+      `【TILE PARK ${isReservation ? '保留單' : '訂單'}確認】`,
       `單號：${order.orderId}`,
       `客戶：${order.company} (${order.contact})`,
-      `送貨：${order.deliveryDate ? order.deliveryDate.split('T')[0] : ''} ${order.deliveryTime}`,
+      `${isReservation ? '預計出貨' : '送貨'}：${order.deliveryDate ? order.deliveryDate.split('T')[0] : ''} ${order.deliveryTime}`,
       `地址：${order.address}`,
       ``,
-      `訂購內容：`,
+      `${isReservation ? '保留' : '訂購'}內容：`,
       ...(order.parsedItems.length > 0 ? order.parsedItems : ['(無內容)']),
       ``,
       `目前狀態：${order.status}`,
@@ -149,9 +166,12 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
       <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
-        <div className="bg-[#222] text-white p-4 flex justify-between items-center shrink-0">
+        <div className={`${isReservation ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0`}>
           <div>
-            <p className="text-xs text-gray-400 font-mono">ORDER ID</p>
+            <div className="flex items-center gap-2">
+                <p className="text-xs text-white/70 font-mono">ORDER ID</p>
+                {isReservation && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">保留庫存</span>}
+            </div>
             <h2 className="text-xl font-bold font-mono tracking-wider">{order.orderId}</h2>
           </div>
           <div className="flex items-center gap-2">
@@ -160,7 +180,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
             >
                 {copied ? <Icons.Check size={14} /> : <Icons.Copy size={14} />}
-                {copied ? '已複製' : '複製卡片'}
+                {copied ? '已複製' : '複製'}
             </button>
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <Icons.X size={24} />
@@ -215,11 +235,21 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
                     />
                 </label>
             </div>
+            
+            {isReservation && (
+                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-600 flex items-start gap-2">
+                    <Icons.Archive size={16} className="shrink-0 mt-0.5" />
+                    <div>
+                        <span className="font-bold block mb-1">保留單注意事項</span>
+                        此為保留庫存需求，系統保留期限原則上為一個月。若庫存緊張，請優先分配給已確認之正式訂單。
+                    </div>
+                </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <section>
-              <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">客戶資訊</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>客戶資訊</h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <p><span className="text-gray-400 w-16 inline-block">公司:</span> <span className="font-bold">{order.company}</span></p>
                 <p><span className="text-gray-400 w-16 inline-block">聯絡人:</span> {order.contact}</p>
@@ -229,7 +259,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
             </section>
 
             <section>
-              <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">配送資訊</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>配送資訊</h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <p><span className="text-gray-400 w-16 inline-block">日期:</span> <span className="font-bold">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span></p>
                 <p><span className="text-gray-400 w-16 inline-block">時段:</span> {order.deliveryTime}</p>
@@ -239,7 +269,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onDelete, isProcessi
           </div>
 
           <section className="mb-8">
-            <h3 className="text-xs font-bold text-[#c25e00] uppercase tracking-widest mb-3 border-b border-[#c25e00]/20 pb-1">訂購商品</h3>
+            <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>訂購商品</h3>
             <div className="border rounded-lg overflow-hidden bg-gray-50">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-100 text-gray-500 font-medium">
@@ -343,6 +373,9 @@ export default function AdminDashboard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [lastUpdated, setLastUpdated] = useState("");
+  
+  // 新增篩選狀態: 'all', 'normal', 'reserved'
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     if (!document.querySelector('script[src*="tailwindcss"]')) {
@@ -379,7 +412,9 @@ export default function AdminDashboard() {
         company: item.company || '未知公司',
         orderId: item.orderId || '無單號',
         contact: item.contact || '未知聯絡人',
-        status: item.status || '已接收' 
+        status: item.status || '已接收',
+        // 辨識是否為保留單
+        isReservation: item.orderType && item.orderType.includes('保留庫存')
       }));
 
       setOrders(processedData);
@@ -400,6 +435,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let result = orders;
+    
+    // 1. 先過濾狀態
+    if (filterStatus === 'reserved') {
+        result = result.filter(o => o.isReservation);
+    } else if (filterStatus === 'normal') {
+        result = result.filter(o => !o.isReservation);
+    }
+
+    // 2. 再搜尋關鍵字
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(o => 
@@ -409,14 +453,13 @@ export default function AdminDashboard() {
       );
     }
     setFilteredOrders(result);
-  }, [searchTerm, orders]);
+  }, [searchTerm, orders, filterStatus]);
 
-  // 🔥 關鍵修正：改用 application/x-www-form-urlencoded
   const sendCommandToBackend = async (payload) => {
     setIsProcessing(true);
     try {
         const formData = new URLSearchParams();
-        formData.append('payload', JSON.stringify(payload)); // 將 JSON 包在 payload 欄位送出
+        formData.append('payload', JSON.stringify(payload)); 
 
         await fetch(API_URL, {
             method: 'POST',
@@ -427,7 +470,6 @@ export default function AdminDashboard() {
             body: formData
         });
         
-        // 假設成功（因 no-cors 收不到回傳）
         return true; 
     } catch (err) {
         console.error("Backend Sync Error:", err);
@@ -480,7 +522,7 @@ export default function AdminDashboard() {
         const newOrders = orders.filter(o => !idsToDelete.includes(o.orderId));
         setOrders(newOrders);
         if (!ids) setSelectedIds(new Set());
-        setTimeout(fetchOrders, 2000); // 稍微加長重整等待時間
+        setTimeout(fetchOrders, 2000); 
     }
   };
 
@@ -552,6 +594,13 @@ export default function AdminDashboard() {
     );
   }
 
+  // 計算各分類數量
+  const counts = {
+    all: orders.length,
+    normal: orders.filter(o => !o.isReservation).length,
+    reserved: orders.filter(o => o.isReservation).length
+  };
+
   return (
     <div className="h-screen w-full bg-gray-50 font-sans text-gray-800 flex flex-col md:flex-row overflow-hidden">
       
@@ -576,36 +625,69 @@ export default function AdminDashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col min-h-0 relative">
-        <header className="bg-white border-b border-gray-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 z-10 shadow-sm">
-          <div className="w-full sm:w-auto flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-800">訂單列表</h1>
-            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full font-mono">{filteredOrders.length}</span>
+        <header className="bg-white border-b border-gray-200 p-4 flex flex-col gap-3 shrink-0 z-10 shadow-sm">
+          
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div className="w-full sm:w-auto flex items-center gap-3">
+                <h1 className="text-lg font-bold text-gray-800">訂單列表</h1>
+              </div>
+
+              <div className="flex w-full sm:w-auto gap-2">
+                <div className="relative flex-1 sm:w-64">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Icons.Search size={16} />
+                  </span>
+                  <input 
+                    type="text" 
+                    placeholder="搜尋單號或公司..." 
+                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c25e00] transition-all font-sans"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button 
+                  onClick={() => {
+                    setOrders([]); 
+                    fetchOrders();
+                  }} 
+                  className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
+                  title="強制同步試算表最新資料"
+                >
+                  <Icons.RefreshCw size={18} />
+                </button>
+                <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-red-500 p-2"><Icons.X size={18}/></button>
+              </div>
           </div>
 
-          <div className="flex w-full sm:w-auto gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <Icons.Search size={16} />
-              </span>
-              <input 
-                type="text" 
-                placeholder="搜尋單號或公司..." 
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c25e00] transition-all font-sans"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+          {/* 篩選 Tabs */}
+          <div className="flex gap-2 text-sm overflow-x-auto pb-1 no-scrollbar">
             <button 
-              onClick={() => {
-                setOrders([]); 
-                fetchOrders();
-              }} 
-              className={`p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-all active:scale-95 ${loading ? 'animate-spin text-[#c25e00]' : ''}`}
-              title="強制同步試算表最新資料"
+                onClick={() => setFilterStatus('all')}
+                className={`px-4 py-1.5 rounded-full border transition-colors whitespace-nowrap font-bold flex items-center gap-2
+                    ${filterStatus === 'all' 
+                        ? 'bg-gray-800 text-white border-gray-800' 
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
             >
-              <Icons.RefreshCw size={18} />
+                全部 <span className="text-xs opacity-70">({counts.all})</span>
             </button>
-            <button onClick={() => setIsLoggedIn(false)} className="text-gray-400 hover:text-red-500 p-2"><Icons.X size={18}/></button>
+            <button 
+                onClick={() => setFilterStatus('normal')}
+                className={`px-4 py-1.5 rounded-full border transition-colors whitespace-nowrap font-bold flex items-center gap-2
+                    ${filterStatus === 'normal' 
+                        ? 'bg-[#c25e00] text-white border-[#c25e00]' 
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+            >
+                正式訂單 <span className="text-xs opacity-70">({counts.normal})</span>
+            </button>
+            <button 
+                onClick={() => setFilterStatus('reserved')}
+                className={`px-4 py-1.5 rounded-full border transition-colors whitespace-nowrap font-bold flex items-center gap-2
+                    ${filterStatus === 'reserved' 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'}`}
+            >
+                <Icons.Archive size={14} /> 保留庫存 <span className="text-xs opacity-70">({counts.reserved})</span>
+            </button>
           </div>
         </header>
 
@@ -643,6 +725,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-gray-100">
                     {filteredOrders.map((order, idx) => {
                       const isSelected = selectedIds.has(order.orderId);
+                      const isReservation = order.isReservation;
+                      
                       return (
                         <tr 
                           key={idx} 
@@ -657,7 +741,12 @@ export default function AdminDashboard() {
                               className="w-4 h-4 rounded border-gray-300 text-[#c25e00] focus:ring-[#c25e00]"
                             />
                           </td>
-                          <td className="p-4 font-mono font-bold text-[#c25e00]">{order.orderId}</td>
+                          <td className="p-4">
+                              <div className="flex items-center">
+                                  <span className={`font-mono font-bold ${isReservation ? 'text-blue-600' : 'text-[#c25e00]'}`}>{order.orderId}</span>
+                                  {isReservation && <ReservationBadge />}
+                              </div>
+                          </td>
                           <td className="p-4"><StatusBadge status={order.status} /></td>
                           <td className="p-4 font-bold text-gray-800">{order.company}</td>
                           <td className="p-4">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</td>
@@ -685,8 +774,8 @@ export default function AdminDashboard() {
               
               {filteredOrders.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-300">
-                  <Icons.FileText size={48} className="mb-4 opacity-20" />
-                  <p className="font-bold">目前查無訂單，請確認試算表是否有資料。</p>
+                  <Icons.Filter size={48} className="mb-4 opacity-20" />
+                  <p className="font-bold">此分類下目前沒有訂單。</p>
                 </div>
               )}
             </>
@@ -714,12 +803,14 @@ export default function AdminDashboard() {
         />
       )}
 
-      {/* Tailwind Utility for Animations (Usually in CSS, but putting here if needed for inline styles) */}
       <style>{`
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         .animate-slide-up { animation: slideUp 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        /* 隱藏 Scrollbar 但保留功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );
