@@ -57,7 +57,7 @@ const StatusBadge = ({ status }) => {
 
 const ReservationBadge = () => (
     <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 ml-2 whitespace-nowrap">
-        <Icons.Archive size={10} /> 保留
+      <Icons.Archive size={10} /> 保留
     </span>
 );
 
@@ -269,7 +269,7 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
             </div>
           </div>
           
-          {/* 🏭 工廠排程與註記 (新功能) */}
+          {/* 🏭 工廠排程與註記 */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-6 relative group transition-all hover:shadow-md">
             <h3 className="text-sm font-bold text-amber-800 mb-4 flex items-center gap-2">
                 <Icons.Factory size={18}/> 
@@ -330,19 +330,45 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
           </div>
 
           <section className="mb-8">
+            {/* 🔥 修改 1: 標題加入「單位」字樣 */}
             <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 border-b pb-1 ${isReservation ? 'text-blue-600 border-blue-100' : 'text-[#c25e00] border-[#c25e00]/20'}`}>訂購商品</h3>
             <div className="border rounded-lg overflow-hidden bg-gray-50">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-100 text-gray-500 font-medium">
-                  <tr><th className="p-3">品項內容 (品名 / 數量 / 備註)</th></tr>
+                  <tr><th className="p-3">品項內容 (品名 / 數量 / 單位 / 備註)</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {order.parsedItems && order.parsedItems.length > 0 ? (
-                    order.parsedItems.map((itemStr, idx) => (
-                      <tr key={idx} className="hover:bg-gray-100">
-                        <td className="p-3 font-medium text-gray-800">{itemStr}</td>
-                      </tr>
-                    ))
+                    order.parsedItems.map((itemStr, idx) => {
+                      // 🔥 修改 2: 簡單解析字串，讓數量+單位 (例如: x 10片) 更明顯
+                      // 假設格式為: 1. 品名 x 數量單位 (備註)
+                      const parts = itemStr.split(' x ');
+                      let displayContent = itemStr;
+                      
+                      if (parts.length > 1) {
+                        const namePart = parts[0]; // "1. 品名"
+                        const restPart = parts[1]; // "數量單位 (備註)"
+                        
+                        // 嘗試分離數量和備註
+                        const unitEndIndex = restPart.indexOf(' (');
+                        const qtyUnit = unitEndIndex > -1 ? restPart.substring(0, unitEndIndex) : restPart;
+                        const note = unitEndIndex > -1 ? restPart.substring(unitEndIndex) : '';
+
+                        displayContent = (
+                          <span>
+                            {namePart} <span className="text-gray-400 mx-1">x</span> 
+                            <span className="font-bold text-lg text-[#c25e00] bg-orange-50 px-1 rounded">{qtyUnit}</span>
+                            <span className="text-gray-500 ml-1">{note}</span>
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <tr key={idx} className="hover:bg-gray-100">
+                          <td className="p-3 font-medium text-gray-800">{displayContent}</td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr><td className="p-3 text-gray-400">無商品資料</td></tr>
                   )}
