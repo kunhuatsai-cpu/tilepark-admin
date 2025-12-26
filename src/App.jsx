@@ -498,6 +498,9 @@ export default function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
+    // 🌟 1. 設定瀏覽器標題
+    document.title = "Tile Park Taiwan Admin System";
+
     if (!document.querySelector('script[src*="tailwindcss"]')) {
       const script = document.createElement('script');
       script.src = "https://cdn.tailwindcss.com";
@@ -710,10 +713,11 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#222] flex flex-col items-center justify-center p-4 font-sans text-gray-800">
         <div className="w-full max-w-sm bg-white/5 p-8 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl animate-fade-in">
+          {/* 🌟 2. 登入畫面標題更新 */}
           <div className="flex flex-col items-center justify-center mb-8">
-            <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK</h1>
+            <h1 className="text-3xl font-bold text-white tracking-[0.2em]">TILE PARK TAIWAN</h1>
             <div className="w-full h-0.5 bg-[#c25e00] my-2 max-w-[120px]"></div>
-            <span className="text-sm text-gray-400 tracking-[0.5em]">TAIWAN</span>
+            <span className="text-sm text-gray-400 tracking-[0.5em]">ADMIN SYSTEM</span>
           </div>
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="relative">
@@ -749,9 +753,10 @@ export default function AdminDashboard() {
       
       <aside className="bg-[#222] text-white flex-shrink-0 flex flex-col md:w-64 z-20 shadow-lg md:shadow-none">
         <div className="p-4 md:p-6 border-b border-gray-700">
+          {/* 🌟 3. 側邊欄標題更新 */}
           <div className="flex flex-col leading-none">
-            <span className="font-bold text-white tracking-widest text-lg">TILE PARK</span>
-            <span className="text-[10px] text-[#c25e00] tracking-[0.35em] mt-1">ADMIN</span>
+            <span className="font-bold text-white tracking-widest text-lg">TILE PARK TAIWAN</span>
+            <span className="text-[10px] text-[#c25e00] tracking-[0.35em] mt-1">ADMIN SYSTEM</span>
           </div>
         </div>
         
