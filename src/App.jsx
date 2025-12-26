@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// 🛑 您的 Google Script 網址 (已更新為最新版)
+// 🛑 您的 Google Script 網址
 const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
 // --- 🛠️ 內建圖示 ---
@@ -123,14 +123,20 @@ const OrderCard = ({ order, isSelected, onSelect, onClick }) => {
 const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
   const [copied, setCopied] = useState(false);
   
-  // 本地狀態，用於編輯註記、ETA 和 送貨日期
   const [internalNote, setInternalNote] = useState(order.internalNote || '');
   const [factoryEta, setFactoryEta] = useState(order.factoryEta || '');
   const [deliveryDate, setDeliveryDate] = useState(order.deliveryDate ? order.deliveryDate.split('T')[0] : '');
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // 避免 undefined
+  // 偵錯用：在 Console 顯示原始資料，方便檢查單位是否存在
+  useEffect(() => {
+    if (order && order.parsedItems) {
+      console.log('Order ID:', order.orderId);
+      console.log('Raw Items:', order.parsedItems);
+    }
+  }, [order]);
+
   if (!order) return null;
 
   const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
@@ -183,7 +189,6 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
       setIsSavingDetails(true);
       setSaveSuccess(false);
       
-      // 包含 deliveryDate 一起更新
       const success = await onUpdateDetails(order.orderId, { internalNote, factoryEta, deliveryDate });
       
       setIsSavingDetails(false);
@@ -228,7 +233,6 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
               <span className="text-xs text-gray-400 font-mono ml-auto">Synced: {new Date().toLocaleDateString()}</span>
             </div>
             
-            {/* 狀態切換按鈕區 */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 shadow-inner">
                 <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity flex-1 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className={`w-8 h-8 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isStockConfirmed ? 'bg-teal-500 border-teal-500' : 'bg-white border-gray-300 hover:border-teal-400'}`}>
@@ -269,7 +273,6 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
             </div>
           </div>
           
-          {/* 🏭 工廠排程與註記 (樣式優化版：白底黑字) */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-6 relative group transition-all hover:shadow-md">
             <h3 className="text-sm font-bold text-amber-800 mb-4 flex items-center gap-2">
                 <Icons.Factory size={18}/> 
@@ -339,30 +342,54 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus, onUpdateDetails, onD
                 <tbody className="divide-y divide-gray-200">
                   {order.parsedItems && order.parsedItems.length > 0 ? (
                     order.parsedItems.map((itemStr, idx) => {
-                      // 解析字串，讓數量+單位 (例如: x 10片) 更明顯
-                      const parts = itemStr.split(' x ');
-                      let displayContent = itemStr;
+                      // 🌟 改進後的解析邏輯：使用 Regex 抓取數量
+                      // 邏輯: 嘗試匹配 "名稱" + (x/X/*) + "數量(含單位)" + (備註)
+                      // 例如: "磁磚A x 10箱" -> Name: 磁磚A, Qty: 10箱
+                      // 例如: "磁磚B 10片" (無x) -> 嘗試直接顯示
                       
-                      if (parts.length > 1) {
-                        const namePart = parts[0]; 
-                        const restPart = parts[1]; 
-                        
-                        const unitEndIndex = restPart.indexOf(' (');
-                        const qtyUnit = unitEndIndex > -1 ? restPart.substring(0, unitEndIndex) : restPart;
-                        const note = unitEndIndex > -1 ? restPart.substring(unitEndIndex) : '';
+                      let namePart = itemStr;
+                      let qtyPart = '';
+                      let notePart = '';
+                      let hasSeparator = false;
 
+                      // Regex 解釋:
+                      // ^(.*?)       -> 抓取前面的名稱 (非貪婪)
+                      // \s*[xX*]\s* -> 抓取分隔符號 x, X, * (允許周圍有空白)
+                      // ([^()]+)     -> 抓取數量部分 (除了括號以外的字元)
+                      // (?:\s*\((.*)\))?$ -> 抓取選填的 (備註)
+                      const regexWithSep = /^(.*?)\s*[xX*]\s*([^()]+)(?:\s*\((.*)\))?$/;
+                      const matchSep = itemStr.match(regexWithSep);
+
+                      if (matchSep) {
+                        hasSeparator = true;
+                        namePart = matchSep[1].trim();
+                        qtyPart = matchSep[2].trim();
+                        notePart = matchSep[3] ? matchSep[3].trim() : '';
+                      } 
+
+                      let displayContent;
+
+                      if (hasSeparator) {
                         displayContent = (
                           <span>
                             {namePart} <span className="text-gray-400 mx-1">x</span> 
-                            <span className="font-bold text-lg text-[#c25e00] bg-orange-50 px-1 rounded">{qtyUnit}</span>
-                            <span className="text-gray-500 ml-1">{note}</span>
+                            <span className="font-bold text-lg text-[#c25e00] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
+                                {qtyPart}
+                            </span>
+                            {notePart && <span className="text-gray-500 ml-2 text-xs bg-gray-100 px-1 rounded">({notePart})</span>}
                           </span>
                         );
+                      } else {
+                        // 如果沒有分隔符號 (可能是 "Item 10" 或 "Item")
+                        // 直接顯示原始字串，但稍微美化
+                        displayContent = <span className="text-gray-800">{itemStr}</span>;
                       }
 
                       return (
                         <tr key={idx} className="hover:bg-gray-100">
-                          <td className="p-3 font-medium text-gray-800">{displayContent}</td>
+                          <td className="p-3 font-medium text-gray-800 flex items-center">
+                            {displayContent}
+                          </td>
                         </tr>
                       );
                     })
