@@ -125,7 +125,6 @@
               <div onClick={onClick} className="text-sm text-gray-600 space-y-1.5 mb-3 bg-gray-50 p-2 rounded border border-gray-100 cursor-pointer">
                 <div className="flex items-center gap-2">
                   <Icons.Clock size={14} className="text-gray-400" /> 
-                  {/* 🟢 修正：顯示出貨日期 */}
                   <span className="font-medium">{order.deliveryDate ? order.deliveryDate.split('T')[0] : ''}</span>
                   <span className="text-gray-400 text-xs">({order.deliveryTime})</span>
                 </div>
@@ -365,8 +364,8 @@
                                 let notePart = '';
                                 let hasSeparator = false;
 
-                                // Regex: 寬鬆匹配 x/X/* 前後的空白
-                                const regexWithSep = /^(.*?)\s*[xX*]\s*([^()]+)(?:\s*\((.*)\))?$/;
+                                // Regex: 寬鬆匹配 x/X/* 前後的空白 (改用 Greedy 貪婪模式 ^(.*) 抓取最後一個 x，避免抓到尺寸中的 x)
+                                const regexWithSep = /^(.*)\s*[xX*]\s*([^()]+)(?:\s*\((.*)\))?$/;
                                 const matchSep = itemStr.match(regexWithSep);
 
                                 if (matchSep) {
