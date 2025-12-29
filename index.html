@@ -43,7 +43,6 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
 
-        // 🛑 API 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
         // --- 🛠️ 內建圖示 ---
@@ -58,24 +57,29 @@
           RefreshCw: (p) => <Icon {...p} path={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />,
           Package: (p) => <Icon {...p} path={<><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></>} />,
           Clock: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />,
-          FileText: (p) => <Icon {...p} path={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />,
           X: (p) => <Icon {...p} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />,
-          Trash2: (p) => <Icon {...p} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
           CheckCircle: (p) => <Icon {...p} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />,
           Truck: (p) => <Icon {...p} path={<><rect x="1" y="3" width="15" height="13" rx="2" ry="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
           Loader: (p) => <Icon {...p} path={<><path d="M21 12a9 9 0 1 1-6.219-8.56" /></>} />,
           Save: (p) => <Icon {...p} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>} />,
           Database: (p) => <Icon {...p} path={<><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></>} />,
           Hash: (p) => <Icon {...p} path={<><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>} />,
-          Copy: (p) => <Icon {...p} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
-          Archive: (p) => <Icon {...p} path={<><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></>} />
+          Info: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
+          Archive: (p) => <Icon {...p} path={<><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></>} />,
+          Trash2: (p) => <Icon {...p} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
+          FileText: (p) => <Icon {...p} path={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />
         };
 
         // --- Helper ---
         const safeString = (val) => String(val || '').trim();
-        const safeDate = (val) => {
-          const s = safeString(val);
-          return s.includes('T') ? s.split('T')[0] : s;
+        const parseQty = (val) => {
+          const num = parseFloat(val);
+          return isNaN(num) ? 0 : num;
+        };
+        const cleanForMatch = (val) => {
+          return safeString(val)
+            .toLowerCase()
+            .replace(/[\s\(\)\[\]\-\_\.\/\uff08\uff09\u3010\u3011\u00d7x]/g, '');
         };
 
         // --- 子組件 ---
@@ -101,53 +105,63 @@
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
 
-          // 使用渲染保護
-          const [hasError, setHasError] = useState(false);
-          const [copied, setCopied] = useState(false);
           const [internalNote, setInternalNote] = useState(order.internalNote || '');
           const [factoryEta, setFactoryEta] = useState(order.factoryEta || '');
-          const [deliveryDate, setDeliveryDate] = useState(safeDate(order.deliveryDate));
+          const [deliveryDate, setDeliveryDate] = useState(order.deliveryDate ? order.deliveryDate.split('T')[0] : '');
           const [isSavingDetails, setIsSavingDetails] = useState(false);
           const [saveSuccess, setSaveSuccess] = useState(false);
           
-          // 解析訂單商品
           const [editableItems, setEditableItems] = useState(() => {
-              try {
-                const items = Array.isArray(order.parsedItems) ? order.parsedItems : [];
-                return items.map(itemStr => {
-                    const s = safeString(itemStr);
-                    if (!s) return { name: '未知品項', qty: '0', note: '' };
-                    const regex = /^(.*)\s*[xX*]\s*([^()]+)(?:\s*\((.*)\))?$/;
-                    const match = s.match(regex);
-                    if (match) {
-                        return { name: match[1].trim(), qty: match[2].trim(), note: match[3] || '' };
-                    }
-                    return { name: s, qty: '1', note: '' };
-                });
-              } catch (e) {
-                console.error("Parse Items Error:", e);
-                return [{ name: "資料解析錯誤", qty: "0", note: "" }];
-              }
+              const items = Array.isArray(order.parsedItems) ? order.parsedItems : [];
+              return items.map(itemStr => {
+                  const s = safeString(itemStr);
+                  const regex = /^(.*)\s*[xX*]\s*([^()]+)(?:\s*\((.*)\))?$/;
+                  const match = s.match(regex);
+                  if (match) {
+                      return { name: match[1].trim(), qty: match[2].trim(), note: match[3] || '' };
+                  }
+                  return { name: s, qty: '1', note: '' };
+              });
           });
 
           const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
           const isShipped = order.status === '已排單出貨';
           const isReservation = !!order.isReservation;
 
-          const getStockInfo = (productName) => {
+          // 核心優化：庫存匹配邏輯 (排除庫存 0)
+          const getProductMatches = (orderItemName) => {
               try {
-                if (!Array.isArray(inventory)) return { total: 0, lots: [] };
-                const searchName = safeString(productName).toLowerCase();
-                if (!searchName) return { total: 0, lots: [] };
+                if (!Array.isArray(inventory)) return [];
+                const target = cleanForMatch(orderItemName);
+                if (!target) return [];
 
-                const matches = inventory.filter(inv => {
-                  const invName = safeString(inv.name).toLowerCase();
-                  return invName.includes(searchName);
+                // 1. 找匹配的細項 (且過濾總庫存數 > 0)
+                const matchedLots = inventory.filter(inv => {
+                  // 根據使用者提供的正確欄位：p[7] 是總庫存數
+                  if (parseQty(inv.qty) <= 0) return false;
+                  
+                  const cleanID = cleanForMatch(inv.id); // 貨號 p[0]
+                  const cleanName = cleanForMatch(inv.name); // 產品名稱 p[2]
+                  
+                  // 雙向包含比對
+                  return (cleanID && (target.includes(cleanID) || cleanID.includes(target))) || 
+                         (cleanName && (target.includes(cleanName) || cleanName.includes(target)));
                 });
-                const total = matches.reduce((sum, item) => sum + (parseFloat(item.qty) || 0), 0);
-                return { total: Math.round(total * 100) / 100, lots: matches };
+
+                // 2. 依照 貨號+品名 分組
+                const groups = matchedLots.reduce((acc, curr) => {
+                  const key = `${curr.id}-${curr.name}`;
+                  if (!acc[key]) {
+                    acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
+                  }
+                  acc[key].total += parseQty(curr.qty);
+                  acc[key].lots.push(curr);
+                  return acc;
+                }, {});
+
+                return Object.values(groups);
               } catch (e) {
-                return { total: 0, lots: [] };
+                return [];
               }
           };
 
@@ -170,60 +184,26 @@
                     setTimeout(() => setSaveSuccess(false), 3000);
                 }
               } catch (e) {
-                alert("儲存失敗，請檢查連線。");
+                alert("儲存失敗");
               } finally {
                 setIsSavingDetails(false);
               }
           };
 
-          const handleCopy = () => {
-              try {
-                const itemsText = editableItems.map(i => `・${i.name} x ${i.qty}`).join('\n');
-                const text = `【TILE PARK 訂單確認】\n單號：${order.orderId}\n客戶：${order.company}\n預計出貨：${deliveryDate}\n\n內容：\n${itemsText}\n\n狀態：${order.status}`;
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              } catch (e) {
-                console.error("Copy error");
-              }
-          };
-
-          // 如果發生組件崩潰保護
-          if (hasError) {
-            return (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                <div className="bg-white p-6 rounded-lg max-w-sm text-center">
-                  <p className="mb-4 font-bold text-red-500">此訂單內容包含異常字元，無法正確顯示。</p>
-                  <button onClick={onClose} className="bg-gray-800 text-white px-4 py-2 rounded">關閉視窗</button>
-                </div>
-              </div>
-            );
-          }
-
           return (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 
                 {/* Header */}
                 <div className={`${isReservation ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                        <p className="text-xs text-white/70 font-mono tracking-widest uppercase">Detail View</p>
-                        {isReservation && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">保留庫存</span>}
+                        <p className="text-xs text-white/70 font-mono tracking-widest uppercase">Stock Check</p>
+                        {isReservation && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">保留單據</span>}
                     </div>
                     <h2 className="text-xl font-bold font-mono truncate">#{order.orderId}</h2>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={handleCopy} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${copied ? 'bg-green-500' : 'bg-white/10 hover:bg-white/20'}`}>
-                        {copied ? '已複製' : '複製摘要'}
-                    </button>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><Icons.X size={24} /></button>
-                  </div>
+                  <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><Icons.X size={24} /></button>
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50/50 flex-1">
@@ -235,8 +215,8 @@
                                 {isStockConfirmed ? <Icons.CheckCircle size={24} className="text-white" /> : <Icons.Database size={20} className="text-gray-300" />}
                             </div>
                             <div>
-                                <span className={`block font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認庫存</span>
-                                <span className="text-xs text-gray-400">核對批號與存貨</span>
+                                <span className={`block font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認批號與庫存</span>
+                                <span className="text-xs text-gray-400">核對現場存貨與色號</span>
                             </div>
                             <input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => !isStockConfirmed && onUpdateStatus([order.orderId], '已確認庫存')} disabled={isProcessing || isStockConfirmed} />
                         </label>
@@ -247,7 +227,7 @@
                             </div>
                             <div>
                                 <span className={`block font-bold ${isShipped ? 'text-blue-700' : 'text-gray-700'}`}>已排單出貨</span>
-                                <span className="text-xs text-gray-400">進入物流程序</span>
+                                <span className="text-xs text-gray-400">進入物流配送程序</span>
                             </div>
                             <input type="checkbox" className="hidden" checked={isShipped} onChange={() => !isShipped && onUpdateStatus([order.orderId], '已排單出貨')} disabled={isProcessing || isShipped} />
                         </label>
@@ -256,64 +236,82 @@
                   {/* Items Section */}
                   <section className="mb-8">
                     <h3 className={`text-xs font-black uppercase tracking-widest mb-4 flex items-center justify-between ${isReservation ? 'text-blue-600' : 'text-[#c25e00]'}`}>
-                        <span>品項與批號庫存對照</span>
-                        <span className="text-gray-400 font-normal">單位：箱/才/片</span>
+                        <span>訂購明細與即時批號庫存 (過濾零庫存)</span>
                     </h3>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {editableItems.map((item, idx) => {
-                          const stock = getStockInfo(item.name);
-                          const currentQty = parseFloat(item.qty) || 0;
-                          const isShortage = currentQty > stock.total;
+                          const matches = getProductMatches(item.name);
+                          const orderQty = parseQty(item.qty);
                           
                           return (
-                            <div key={idx} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-all hover:border-gray-300 ${isShortage ? 'ring-2 ring-red-100 border-red-200' : ''}`}>
-                                <div className="p-4 flex flex-col md:flex-row gap-5">
+                            <div key={idx} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="p-4 bg-gray-50 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="font-bold text-gray-800 leading-tight break-words">{item.name}</div>
-                                            {isShortage && <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse shrink-0 ml-2">庫存不足</span>}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                <input 
-                                                    type="number" 
-                                                    value={item.qty} 
-                                                    onChange={(e) => handleUpdateItemQty(idx, e.target.value)}
-                                                    className={`w-28 p-2 border rounded-lg font-black text-lg text-center outline-none transition-all ${isShortage ? 'bg-red-50 border-red-300 text-red-600' : 'bg-gray-50 border-gray-200 text-[#c25e00] focus:ring-2 focus:ring-orange-200'}`}
-                                                />
-                                                <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] font-bold text-gray-400 border border-gray-100 rounded">編輯數量</span>
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-xs text-gray-500 font-medium truncate">備註: {item.note || '無'}</span>
-                                            </div>
+                                        <div className="text-sm font-black text-gray-900 mb-1 break-words">{item.name}</div>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <Icons.Info size={12}/> 備註: {item.note || '無'}
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                value={item.qty} 
+                                                onChange={(e) => handleUpdateItemQty(idx, e.target.value)}
+                                                className="w-24 p-2 border rounded-lg font-black text-lg text-center outline-none bg-white border-gray-300 focus:ring-2 focus:ring-orange-200"
+                                            />
+                                            <span className="absolute -top-2 left-2 bg-white px-1 text-[9px] font-bold text-gray-400 border border-gray-100 rounded">設定數量</span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                    <div className="md:w-72 shrink-0 bg-gray-50/80 rounded-xl p-3 border border-gray-100">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400">
-                                                <Icons.Database size={12} /> 即時總庫存
-                                            </div>
-                                            <div className={`text-base font-black ${isShortage ? 'text-red-500' : 'text-teal-600'}`}>
-                                                {stock.total}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                                            {stock.lots.length > 0 ? stock.lots.map((lot, lIdx) => (
-                                                <div key={lIdx} className="flex justify-between items-center text-[10px] py-1 border-b border-gray-100 last:border-0">
-                                                    <span className="font-mono text-gray-500 flex items-center gap-1 truncate mr-2">
-                                                        <Icons.Hash size={10} className="text-gray-300" /> {lot.lot || '批號未知'}
-                                                    </span>
-                                                    <span className="font-bold text-gray-700 bg-white px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
-                                                        {lot.qty}
-                                                    </span>
+                                <div className="p-4">
+                                    {matches.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {matches.map((group, gIdx) => (
+                                                <div key={gIdx} className="border border-orange-100 bg-orange-50/10 rounded-lg p-3">
+                                                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-orange-100">
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="font-mono text-[10px] font-black bg-[#c25e00] text-white px-1.5 py-0.5 rounded shrink-0">{group.id}</span>
+                                                                <span className="text-xs font-bold text-gray-700 truncate">{group.name}</span>
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-400">規格: {group.spec || '預設規格'}</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-[10px] text-gray-400 block uppercase font-bold">產品總量</span>
+                                                            <span className={`text-lg font-black ${group.total < orderQty ? 'text-red-500 underline decoration-2' : 'text-teal-600'}`}>{group.total}</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* 批號與細項數量 */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                        {group.lots.map((lot, lIdx) => (
+                                                            <div key={lIdx} className="bg-white p-2.5 rounded border border-gray-200 shadow-sm flex flex-col hover:border-orange-200 transition-colors">
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">批號 (LOT)</span>
+                                                                        <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight">{lot.lot || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div className="bg-orange-50 px-2 py-1 rounded text-right shrink-0 ml-2">
+                                                                        <span className="text-[9px] text-gray-400 block font-bold uppercase leading-none mb-0.5">數量</span>
+                                                                        <span className="font-black text-gray-800 leading-none">{lot.qty}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            )) : (
-                                                <div className="text-[10px] text-gray-400 italic text-center py-4 bg-white/50 rounded-lg">查無庫存資料</div>
-                                            )}
+                                            ))}
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                            <Icons.Search size={32} className="mx-auto text-gray-200 mb-2"/>
+                                            <p className="text-xs text-gray-400 font-bold">查無符合此品名的庫存資料</p>
+                                            <p className="text-[10px] text-gray-300">請確認貨號或名稱是否正確 (且總庫存數不為0)</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                           );
@@ -321,40 +319,39 @@
                     </div>
                   </section>
 
-                  {/* Info Grid */}
+                  {/* 配送資訊 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <section className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">客戶資訊</h4>
-                      <div className="space-y-3 text-sm">
-                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">公司:</span> <span className="font-bold text-right">{order.company}</span></p>
-                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">聯絡人:</span> <span className="text-right">{order.contact}</span></p>
+                      <div className="space-y-3 text-sm text-gray-600">
+                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">公司:</span> <span className="font-bold text-gray-800 text-right">{order.company}</span></p>
+                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">聯絡人:</span> <span className="text-gray-800 text-right">{order.contact}</span></p>
                         <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">電話:</span> <a href={`tel:${order.phone}`} className="text-blue-600 font-mono font-bold underline text-right">{order.phone}</a></p>
                       </div>
                     </section>
                     <section className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">出貨詳情</h4>
-                      <div className="space-y-3 text-sm">
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">配送安排</h4>
+                      <div className="space-y-3 text-sm text-gray-600">
                         <div className="flex justify-between items-center gap-4">
-                            <span className="text-gray-400 shrink-0">出貨日期:</span> 
-                            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} className="font-bold border-b border-gray-200 focus:border-orange-500 outline-none bg-transparent py-1 text-right w-full max-w-[150px]" />
+                            <span className="text-gray-400 shrink-0">預計出貨:</span> 
+                            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} className="font-bold border-b border-gray-200 focus:border-orange-500 outline-none bg-transparent py-1 text-right w-full max-w-[150px] text-gray-800" />
                         </div>
-                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">送貨時段:</span> <span className="font-bold text-right">{order.deliveryTime}</span></p>
-                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">送貨地址:</span> <span className="text-right ml-4 break-words">{order.address}</span></p>
+                        <p className="flex justify-between gap-4"><span className="text-gray-400 shrink-0">送貨地址:</span> <span className="text-right ml-4 break-words text-gray-800">{order.address}</span></p>
                       </div>
                     </section>
                   </div>
 
-                  {/* Internal Notes */}
+                  {/* 備註 */}
                   <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-5 mb-8">
-                    <h3 className="text-sm font-black text-amber-800 mb-4 flex items-center gap-2">內部管理註記</h3>
+                    <h3 className="text-sm font-black text-amber-800 mb-4 flex items-center gap-2">內部排程備忘錄</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="relative">
                             <label className="text-[10px] font-bold text-amber-700 uppercase mb-1.5 block">工廠 ETA (預計到貨)</label>
                             <input type="date" value={factoryEta} onChange={e => setFactoryEta(e.target.value)} className="w-full p-2.5 border border-amber-200 rounded-lg text-sm bg-white shadow-sm" />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="text-[10px] font-bold text-amber-700 uppercase mb-1.5 block">備忘錄 (不顯示給客戶)</label>
-                            <textarea value={internalNote} onChange={e => setInternalNote(e.target.value)} className="w-full p-3 border border-amber-200 rounded-xl text-sm h-24 bg-white shadow-sm resize-none" placeholder="輸入內部溝通細節、批號對照紀錄等..." />
+                            <label className="text-[10px] font-bold text-amber-700 uppercase mb-1.5 block">備忘錄 (僅內部可見)</label>
+                            <textarea value={internalNote} onChange={e => setInternalNote(e.target.value)} className="w-full p-3 border border-amber-200 rounded-xl text-sm h-24 bg-white shadow-sm resize-none" placeholder="輸入批號狀況或特殊物流要求..." />
                         </div>
                     </div>
                   </div>
@@ -368,7 +365,7 @@
                         className={`w-full sm:w-auto px-10 py-3.5 rounded-xl text-sm font-black text-white transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95 ${saveSuccess ? 'bg-green-600' : 'bg-[#c25e00] hover:bg-[#a04d00]'}`}
                     >
                         {isSavingDetails ? <Icons.Loader size={18} className="animate-spin" /> : saveSuccess ? <Icons.CheckCircle size={18} /> : <Icons.Save size={18} />}
-                        {isSavingDetails ? '儲存中...' : saveSuccess ? '儲存成功' : '確認變更並儲存'}
+                        {isSavingDetails ? '儲存中...' : saveSuccess ? '儲存成功' : '確認並儲存變更'}
                     </button>
                   </div>
                 </div>
@@ -400,8 +397,8 @@
               const response = await fetch(`${API_URL}?t=${timestamp}`, { method: 'GET', cache: 'no-store' });
               const result = await response.json();
               
-              // 強制校驗格式，避免崩潰
-              const rawOrders = Array.isArray(result.orders) ? result.orders : (Array.isArray(result) ? result : []);
+              const rawOrders = Array.isArray(result.orders) ? result.orders : [];
+              const rawInventory = Array.isArray(result.inventory) ? result.inventory : [];
               
               const processedOrders = rawOrders.map(item => ({
                 ...item,
@@ -411,7 +408,7 @@
               }));
               
               setOrders(processedOrders);
-              if (Array.isArray(result.inventory)) setInventory(result.inventory);
+              setInventory(rawInventory);
               setLastUpdated(new Date().toLocaleTimeString());
             } catch (error) {
               console.error("Fetch Error:", error);
@@ -476,11 +473,11 @@
                 <div className="w-full max-w-sm bg-white/5 p-10 rounded-[2rem] backdrop-blur-xl border border-white/10 shadow-2xl animate-fade-in">
                   <div className="text-center mb-10">
                     <h1 className="text-3xl font-black text-white tracking-[0.2em]">TILE PARK</h1>
-                    <p className="text-[10px] text-orange-500 font-bold tracking-[0.5em] mt-2">ADMIN SYSTEM</p>
+                    <p className="text-[10px] text-orange-500 font-bold tracking-[0.5em] mt-2 text-center uppercase">Management System</p>
                   </div>
                   <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
-                    <input type="password" placeholder="PASSWORD" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
-                    <button type="submit" className="w-full bg-orange-600 text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-500 transition-all shadow-lg shadow-orange-900/20 active:scale-95">LOGIN</button>
+                    <input type="password" placeholder="••••••••" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all font-mono" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
+                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all shadow-lg active:scale-95">LOGIN</button>
                   </form>
                 </div>
               </div>
@@ -495,17 +492,17 @@
                   <div className="text-[10px] text-orange-500 font-mono font-bold">STOCK MANAGER</div>
                 </div>
                 <nav className="p-4 flex-1">
-                  <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-orange-600 text-white font-bold text-sm shadow-lg shadow-orange-900/40">
+                  <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#c25e00] text-white font-bold text-sm shadow-lg shadow-orange-900/40">
                     <Icons.FileText size={18} /> 訂單管理
                   </button>
                 </nav>
-                <div className="p-4 border-t border-white/5 text-[10px] text-gray-500 font-mono text-center">Last Sync: {lastUpdated}</div>
+                <div className="p-4 border-t border-white/5 text-[10px] text-gray-500 font-mono text-center">Sync: {lastUpdated}</div>
               </aside>
 
               <main className="flex-1 flex flex-col min-h-0 relative">
                 <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10">
                   <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                      <h2 className="text-xl font-black text-gray-800 tracking-tight">訂單與庫存對照</h2>
+                      <h2 className="text-xl font-black text-gray-800 tracking-tight">訂單與庫存對照系統</h2>
                       <div className="flex w-full sm:w-auto gap-2">
                         <div className="relative flex-1 sm:w-80">
                           <Icons.Search className="absolute left-3 top-3 text-gray-400" size={16} />
@@ -517,7 +514,7 @@
                   <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                     {['all', 'normal', 'reserved', 'shipped'].map(s => (
                       <button key={s} onClick={()=>setFilterStatus(s)} className={`px-5 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all border ${filterStatus===s ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
-                        {s==='all' && '全部'} {s==='normal' && '一般訂單'} {s==='reserved' && '保留庫存'} {s==='shipped' && '已出貨'}
+                        {s==='all' && '全部'} {s==='normal' && '正式訂單'} {s==='reserved' && '保留庫存'} {s==='shipped' && '已出貨'}
                       </button>
                     ))}
                   </div>
@@ -539,7 +536,7 @@
                                         <th className="p-4 text-right pr-6">功能</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 font-medium">
+                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
                                     {filteredOrders.length === 0 ? (
                                       <tr><td colSpan="6" className="p-10 text-center text-gray-400 italic">查無符合條件之訂單</td></tr>
                                     ) : (
@@ -560,9 +557,9 @@
                                             </td>
                                             <td className="p-4"><StatusBadge status={o.status} /></td>
                                             <td className="p-4 font-bold text-gray-800">{o.company}</td>
-                                            <td className="p-4 text-gray-500 font-mono text-xs">{safeDate(o.deliveryDate) || '未排程'}</td>
+                                            <td className="p-4 text-gray-500 font-mono text-xs">{o.deliveryDate ? o.deliveryDate.split('T')[0] : '未排程'}</td>
                                             <td className="p-4 text-right pr-6">
-                                                <button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full uppercase hover:bg-orange-100 hover:text-orange-600 transition-all border border-gray-200">View</button>
+                                                <button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full uppercase hover:bg-orange-100 hover:text-orange-600 transition-all border border-gray-200">Detail</button>
                                             </td>
                                         </tr>
                                       ))
@@ -577,8 +574,8 @@
                     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md border border-gray-200 shadow-2xl rounded-2xl px-6 py-4 flex items-center gap-6 animate-slide-up z-40">
                         <span className="text-sm font-black text-gray-600 border-r border-gray-200 pr-6 uppercase tracking-widest whitespace-nowrap">已選擇 <span className="text-orange-600 font-mono">{selectedIds.size}</span></span>
                         <div className="flex gap-3">
-                            <button onClick={()=>handleStatusUpdate(null, '已確認庫存')} className="flex items-center gap-2 text-xs font-black text-teal-700 bg-teal-50 px-4 py-2 rounded-xl hover:bg-teal-100 transition-all border border-teal-100"><Icons.CheckCircle size={16}/> 確認庫存</button>
-                            <button onClick={()=>handleStatusUpdate(null, '已排單出貨')} className="flex items-center gap-2 text-xs font-black text-blue-700 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all border border-blue-100"><Icons.Truck size={16}/> 排單出貨</button>
+                            <button onClick={()=>handleStatusUpdate(null, '已確認庫存')} className="flex items-center gap-2 text-xs font-black text-teal-700 bg-teal-50 px-4 py-2 rounded-xl border border-teal-100"><Icons.CheckCircle size={16}/> 確認庫存</button>
+                            <button onClick={()=>handleStatusUpdate(null, '已排單出貨')} className="flex items-center gap-2 text-xs font-black text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100"><Icons.Truck size={16}/> 排單出貨</button>
                         </div>
                     </div>
                 )}
