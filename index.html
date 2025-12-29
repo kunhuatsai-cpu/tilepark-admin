@@ -119,17 +119,25 @@
                 return rawItems.map(line => {
                     let s = Utils.safeStr(line).replace(/^(\d+[\.\s]+)/, ''); // 移除序號 1. 2.
                     
-                    // 規則 1: 標準格式 (品名 x 數量 單位)，例如 "Item x 100 pcs" (有空格)
-                    const regex = /^(.*?)\s+[xX\*\u00d7]\s*([\d\.]+)\s*([^\(\s]*)(?:\s*\((.*)\))?$/;
-                    const match = s.match(regex);
-                    if (match) return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3] || '', note: match[4] || '' };
-                    
-                    // 規則 2: 緊密格式改良版 (支援尾隨單位)，例如 "22113997x500張"
-                    // 修改說明：允許數量後面接任意文字作為單位 (Group 4)
-                    const fb = s.match(/^(.*?)([xX\*\u00d7])\s*([\d\.]+)\s*(.*)$/);
-                    if (fb) return { name: fb[1].trim(), originalQty: fb[3].trim(), currentQty: fb[3].trim(), unit: fb[4].trim(), note: '' };
+                    // --- 修正後的強效解析邏輯 (v2.1 Fix) ---
+                    // 1. 支援 "型號 x 數量" 格式 (如 22113997 x 500張)
+                    // 2. 允許 x 前後空白，允許全形符號，允許逗號在數字中
+                    // Group 1: Name (非貪婪匹配，直到遇到 x)
+                    // Group 2: Qty (數字，可含逗號和小數點)
+                    // Group 3: Unit (剩餘部分)
+                    const match = s.match(/^(.*?)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
 
-                    // 預設 fallback
+                    if (match) {
+                        return { 
+                            name: match[1].trim(), 
+                            originalQty: match[2].trim(), 
+                            currentQty: match[2].trim(), 
+                            unit: match[3].trim(), 
+                            note: '' 
+                        };
+                    }
+
+                    // 備用: 傳統的 fallback
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
                 });
               } catch (e) {
