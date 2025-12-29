@@ -82,10 +82,19 @@
           const [editableItems, setEditableItems] = useState(() => {
               const items = Array.isArray(order.parsedItems) ? order.parsedItems : [];
               return items.map(itemStr => {
-                  let s = safeString(itemStr).replace(/^(\d+[\.\s]+)/, '');
-                  const regex = /^(.*?)\s*[xX\*\u00d7]\s*([\d\.]+)\s*([^\(\s]*)(?:\s*\((.*)\))?$/;
+                  let s = safeString(itemStr).replace(/^(\d+[\.\s]+)/, ''); // 移除序號 (如 1. )
+                  
+                  // 強化版 Regex：避免將 2.25x15 中的 x 誤判為數量符號。要求數量符號前後至少有一個空格或處於末尾。
+                  const regex = /^(.*?)\s+[xX\*\u00d7]\s*([\d\.]+)\s*([^\(\s]*)(?:\s*\((.*)\))?$/;
                   const match = s.match(regex);
+                  
                   if (match) return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3] || '', note: match[4] || '' };
+                  
+                  // 退而求其次的匹配：如果沒有空格但品名末尾是 x 數字
+                  const fallbackRegex = /^(.*?)([xX\*\u00d7])([\d\.]+)$/;
+                  const fallbackMatch = s.match(fallbackRegex);
+                  if (fallbackMatch) return { name: fallbackMatch[1].trim(), originalQty: fallbackMatch[3].trim(), currentQty: fallbackMatch[3].trim(), unit: '', note: '' };
+
                   return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
               });
           });
@@ -103,8 +112,13 @@
                 const invID = safeString(inv.id).toLowerCase();
                 const invName = safeString(inv.name).toLowerCase();
                 const cleanID = cleanForFuzzy(inv.id);
-                // 邏輯：貨號完全匹配、訂單包含貨號、或是清理後字元匹配
+                
+                // 邏輯升級：
+                // 1. 貨號 (ID) 是否被完整包含在訂單品名中 (例如 HTS151-2 是否在 HTS151-2 Aqua... 中)
+                // 2. 訂單品名是否以貨號開頭
+                // 3. 去除符號後的模糊匹配
                 return (invID && targetFull.includes(invID)) || 
+                       (invID && targetFull.startsWith(invID)) ||
                        (cleanID && targetCleaned.includes(cleanID)) ||
                        (invName && targetFull.includes(invName));
               });
@@ -152,7 +166,7 @@
                             </div>
                             <div>
                                 <span className={`block font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認批號庫存</span>
-                                <span className="text-xs text-gray-400">系統即時比對 A06REPORT</span>
+                                <span className="text-xs text-gray-400 font-sans">系統比對 A06REPORT：A 貨號優先</span>
                             </div>
                             <input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => !isStockConfirmed && onUpdateStatus([order.orderId], '已確認庫存')} disabled={isProcessing || isStockConfirmed} />
                         </label>
@@ -163,35 +177,35 @@
                             </div>
                             <div>
                                 <span className={`block font-bold ${isShipped ? 'text-blue-700' : 'text-gray-700'}`}>已排單出貨</span>
-                                <span className="text-xs text-gray-400">安排物流並同步結案</span>
+                                <span className="text-xs text-gray-400 font-sans text-gray-400">安排物流並同步結案</span>
                             </div>
                             <input type="checkbox" className="hidden" checked={isShipped} onChange={() => !isShipped && onUpdateStatus([order.orderId], '已排單出貨')} disabled={isProcessing || isShipped} />
                         </label>
                   </div>
 
-                  <section className="mb-8">
-                    <h3 className="text-xs font-black uppercase tracking-widest mb-4 flex justify-between items-center text-[#c25e00]">
+                  <section className="mb-8 font-sans">
+                    <h3 className="text-xs font-black uppercase tracking-widest mb-4 flex justify-between items-center text-[#c25e00] font-sans">
                         <span>產品細項與批號比對</span>
-                        <span className="text-[10px] text-gray-400 font-normal font-sans">讀取 A06REPORT：{inventory.length} 筆產品</span>
+                        <span className="text-[10px] text-gray-400 font-normal font-sans">A06REPORT 資料：{inventory.length} 筆</span>
                     </h3>
                     
-                    <div className="space-y-6">
+                    <div className="space-y-6 font-sans">
                       {editableItems.map((item, idx) => {
                           const matches = getProductMatches(item.name);
                           const orderQty = parseQty(item.currentQty);
                           return (
-                            <div key={idx} className="bg-white border rounded-xl overflow-hidden shadow-sm">
+                            <div key={idx} className="bg-white border rounded-xl overflow-hidden shadow-sm font-sans">
                                 <div className="p-4 bg-gray-50 border-b flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 font-sans text-gray-800">
                                     <div className="flex-1 min-w-0 font-sans">
                                         <div className="text-[15px] font-black text-gray-900 mb-1 break-words leading-tight">{item.name}</div>
-                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium font-mono font-sans">
-                                            <Icons.Archive size={12}/> 訂單備註: {item.note || '無'}
+                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium font-sans">
+                                            <Icons.Info size={12}/> 訂單備註: {item.note || '無'}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-6 bg-white p-2 rounded-lg border border-gray-200 shadow-inner font-sans">
                                         <div className="flex flex-col items-center px-4 border-r border-gray-100 font-sans">
                                             <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5 font-sans">原始下單量</span>
-                                            <span className="font-mono text-base font-black text-gray-800 font-sans font-sans">{item.originalQty} <span className="text-[10px] font-normal">{item.unit}</span></span>
+                                            <span className="font-mono text-base font-black text-gray-800 font-sans">{item.originalQty} <span className="text-[10px] font-normal">{item.unit}</span></span>
                                         </div>
                                         <div className="flex flex-col items-center px-2 font-sans">
                                             <span className="text-[9px] font-bold text-[#c25e00] uppercase mb-0.5 font-sans">調整出貨數</span>
@@ -223,11 +237,11 @@
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-sans">
                                                         {group.lots.map((lot, lIdx) => (
                                                             <div key={lIdx} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col font-sans hover:border-teal-400 transition-colors">
-                                                                <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 font-sans font-sans">Batch 批號</span>
+                                                                <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 font-sans">Batch 批號</span>
                                                                 <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{lot.lot || "無批號"}</span>
                                                                 <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-end font-sans">
-                                                                    <span className="text-[9px] text-gray-400 font-bold uppercase font-sans font-sans">剩餘</span>
-                                                                    <span className="font-black text-[15px] text-teal-600 font-mono leading-none font-sans font-sans">{lot.qty}</span>
+                                                                    <span className="text-[9px] text-gray-400 font-bold uppercase font-sans">剩餘</span>
+                                                                    <span className="font-black text-[15px] text-teal-600 font-mono leading-none font-sans">{lot.qty}</span>
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -239,7 +253,7 @@
                                         <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300 font-sans">
                                             <Icons.Search size={44} className="mx-auto text-gray-200 mb-3"/>
                                             <p className="text-sm text-gray-400 font-black uppercase font-sans">No Stock Found</p>
-                                            <p className="text-[11px] text-gray-300 mt-2 font-sans">無法比對到貨號或產品： <span className="font-bold font-mono">"{item.name}"</span></p>
+                                            <p className="text-[11px] text-gray-300 mt-2 font-sans">無法匹配到庫存，請確認貨號 <span className="font-bold font-mono">"{item.name}"</span> 是否正確。</p>
                                         </div>
                                     )}
                                 </div>
@@ -370,15 +384,15 @@
                                     <th className="p-4 font-sans font-bold">單號</th><th className="p-4 text-center font-sans font-bold">狀態</th><th className="p-4 font-sans font-bold">客戶名稱</th><th className="p-4 font-sans font-bold">出貨日</th><th className="p-4 text-right pr-6 font-sans font-bold">功能</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 font-medium font-sans">
+                            <tbody className="divide-y divide-gray-100 font-medium font-sans text-gray-700">
                                 {filteredOrders.map(o => (
                                     <tr key={o.orderId} className={`hover:bg-orange-50/30 transition-colors cursor-pointer ${selectedIds.has(o.orderId) ? 'bg-orange-50/50' : ''} font-sans`} onClick={()=>setSelectedOrder(o)}>
                                         <td className="p-4 text-center font-sans" onClick={e=>e.stopPropagation()}><input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 font-sans" checked={selectedIds.has(o.orderId)} onChange={()=>{ const n = new Set(selectedIds); n.has(o.orderId) ? n.delete(o.orderId) : n.add(o.orderId); setSelectedIds(n); }} /></td>
-                                        <td className="p-4 font-bold font-sans">{o.orderId}</td>
+                                        <td className="p-4 font-bold font-sans text-gray-800">{o.orderId}</td>
                                         <td className="p-4 text-center font-sans"><StatusBadge status={o.status} /></td>
-                                        <td className="p-4 font-bold font-sans">{o.company}</td>
+                                        <td className="p-4 font-bold font-sans text-gray-800">{o.company}</td>
                                         <td className="p-4 text-gray-500 font-mono text-xs font-sans">{o.deliveryDate ? o.deliveryDate.split('T')[0] : '未排程'}</td>
-                                        <td className="p-4 text-right pr-6 font-sans"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border font-sans font-bold">Detail</button></td>
+                                        <td className="p-4 text-right pr-6 font-sans font-bold"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border font-sans font-bold">Detail</button></td>
                                     </tr>
                                 ))}
                             </tbody>
