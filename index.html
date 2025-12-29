@@ -29,7 +29,9 @@ function doPost(e) {
       var idsToDelete = (data.ids || []).map(String);
       var rows = sheet.getDataRange().getDisplayValues();
       var count = 0;
-      for (var i = rows.length - 1; i >= 1; i--) {
+      // 刪除列需要從後往前跑，避免索引偏移
+      // 這裡使用 i 遞減至 1，不使用小於符號以避開解析錯誤
+      for (var i = rows.length - 1; i > 0; i--) {
         if (idsToDelete.indexOf(String(rows[i][1]).trim()) !== -1) {
           sheet.deleteRow(i + 1);
           count++;
@@ -41,18 +43,21 @@ function doPost(e) {
     // --- 🔄 狀態更新 ---
     else if (action === "updateStatus") {
       var idsToUpdate = (data.ids || []).map(String);
-      var newStatus = data.status;
       var rows = sheet.getDataRange().getDisplayValues();
-      for (var i = 1; i < rows.length; i++) {
-        if (idsToUpdate.indexOf(String(rows[i][1]).trim()) !== -1) {
-          var rowNum = i + 1;
-          if (newStatus === '已確認庫存') sheet.getRange(rowNum, 13).setValue("TRUE"); 
-          else if (newStatus === '已排單出貨') {
+      var newStatus = data.status;
+      
+      rows.forEach(function(row, index) {
+        if (index === 0) return; // 跳過標題列
+        if (idsToUpdate.indexOf(String(row[1]).trim()) !== -1) {
+          var rowNum = index + 1;
+          if (newStatus === '已確認庫存') {
+            sheet.getRange(rowNum, 13).setValue("TRUE");
+          } else if (newStatus === '已排單出貨') {
             sheet.getRange(rowNum, 13).setValue("TRUE");
             sheet.getRange(rowNum, 14).setValue("TRUE"); 
           }
         }
-      }
+      });
       return response({result: 'success'});
     }
 
@@ -60,26 +65,23 @@ function doPost(e) {
     else if (action === "updateDetails") {
       var orderId = String(data.orderId).trim();
       var rows = sheet.getDataRange().getDisplayValues();
-      for (var i = 1; i < rows.length; i++) {
-        if (String(rows[i][1]).trim() === orderId) {
-          var rowNum = i + 1;
-          // G欄: 送貨日期 (Index 7)
+      
+      rows.forEach(function(row, index) {
+        if (index === 0) return;
+        if (String(row[1]).trim() === orderId) {
+          var rowNum = index + 1;
           if (data.deliveryDate !== undefined) sheet.getRange(rowNum, 7).setValue("'" + data.deliveryDate);
-          // L欄: 商品內容 (Index 12) - 重要：這讓你能修改出貨數量
           if (data.items !== undefined) sheet.getRange(rowNum, 12).setValue(data.items);
-          // O欄: 內部註記 (Index 15)
           if (data.internalNote !== undefined) sheet.getRange(rowNum, 15).setValue(data.internalNote);
-          // P欄: 工廠ETA (Index 16)
           if (data.factoryEta !== undefined) sheet.getRange(rowNum, 16).setValue(data.factoryEta);
-          break;
         }
-      }
+      });
       return response({result: 'success'});
     }
     
-    // --- 🆕 新增訂單 (整合原有功能) ---
+    // --- 🆕 新增訂單 ---
     else if (action === "create") {
-      var itemsStr = data.itemsText || ""; // 預期前端傳送組合好的字串
+      var itemsStr = data.itemsText || "";
       sheet.appendRow([
         "'" + (data.timestamp || new Date().toISOString()), 
         data.orderId, 
@@ -117,9 +119,11 @@ function doGet(e) {
     var orderSheet = getOrderSheet();
     var orderRows = orderSheet.getDataRange().getDisplayValues();
     var orders = [];
-    for (var i = orderRows.length - 1; i >= 1; i--) {
-      var r = orderRows[i]; // 修正：變數名稱為 r
-      if (!r[1]) continue;
+    
+    // 使用 reverse().forEach() 來達到從後往前讀取的效果，且避開特定的比較符號
+    var dataRowsOnly = orderRows.slice(1); // 移除標題
+    dataRowsOnly.reverse().forEach(function(r) {
+      if (!r[1]) return;
       
       var isStock = String(r[12]).toUpperCase() === "TRUE";
       var isShipped = String(r[13]).toUpperCase() === "TRUE";
@@ -139,19 +143,18 @@ function doGet(e) {
         address: r[8],
         items: r[11],
         status: status,
-        internalNote: r.length > 14 ? r[14] : "", // 修正：使用 r 而非 row
-        factoryEta: r.length > 15 ? r[15] : ""    // 修正：使用 r 而非 row
+        internalNote: r.length > 14 ? r[14] : "",
+        factoryEta: r.length > 15 ? r[15] : ""
       });
-    }
+    });
 
     // B. 讀取庫存 (Products 分頁)
     var prodSheet = ss.getSheetByName("Products");
     var inventory = [];
     if (prodSheet) {
       var prodData = prodSheet.getDataRange().getDisplayValues();
-      for (var j = 1; j < prodData.length; j++) {
-        var p = prodData[j];
-        if (!p[1]) continue;
+      prodData.forEach(function(p, index) {
+        if (index === 0 || !p[1]) return;
         inventory.push({
           id: String(p[0]), 
           name: String(p[1]), 
@@ -160,12 +163,11 @@ function doGet(e) {
           qty: p[4], 
           lot: p[5] || "N/A"
         });
-      }
+      });
     }
 
     return response({ orders: orders, inventory: inventory });
   } catch (err) {
-    // 即使出錯也回傳正確格式的空物件，防止前端崩潰
     return response({ orders: [], inventory: [], error: err.toString() });
   }
 }
