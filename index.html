@@ -37,7 +37,7 @@
         // 🔴 請確認此處網址是否為您最新的 Google Script 部署網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
-        // --- 安全工具集 (防崩潰核心) ---
+        // --- 安全工具集 ---
         const Utils = {
             safeStr: (v) => String(v || '').trim(),
             safeDate: (v) => {
@@ -52,27 +52,17 @@
             cleanFuzzy: (v) => Utils.safeStr(v).toLowerCase().replace(/[^a-z0-9]/g, '')
         };
 
-        // --- 錯誤攔截器 (防止白屏) ---
+        // --- UI 元件 ---
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, error: null }; }
             static getDerivedStateFromError(error) { return { hasError: true, error }; }
             componentDidCatch(error, errorInfo) { console.error("Component Error:", error, errorInfo); }
             render() {
-                if (this.state.hasError) {
-                    return (
-                        <div className="p-6 bg-red-50 border border-red-200 rounded-xl m-4 text-red-800">
-                            <h2 className="text-lg font-bold mb-2">⚠️ 視窗發生錯誤</h2>
-                            <p className="text-sm mb-4">請將以下錯誤訊息截圖回報：</p>
-                            <pre className="bg-white p-4 rounded border text-xs font-mono overflow-auto">{this.state.error && this.state.error.toString()}</pre>
-                            <button onClick={this.props.onClose} className="mt-4 px-4 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700">關閉視窗</button>
-                        </div>
-                    );
-                }
+                if (this.state.hasError) return <div className="p-6 text-red-600">⚠️ 發生錯誤，請重新整理頁面。</div>;
                 return this.props.children;
             }
         }
 
-        // --- 核心圖示定義 ---
         const IconWrap = ({ d, size = 18, className = "" }) => (
           <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
             {d}
@@ -92,7 +82,10 @@
           Trash: (p) => <IconWrap {...p} d={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
           Info: (p) => <IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
           File: (p) => <IconWrap {...p} d={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />,
-          User: (p) => <IconWrap {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />
+          User: (p) => <IconWrap {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />,
+          Box: (p) => <IconWrap {...p} d={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
+          Filter: (p) => <IconWrap {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
+          Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -182,9 +175,7 @@
               setIsSavingDetails(true);
               try {
                 const itemsString = editableItems.map(i => `${i.name} x ${i.currentQty}${i.unit} ${i.note ? `(${i.note})` : ''}`).join('\n');
-                const success = await onUpdateDetails(order.orderId, { 
-                    orderType, internalNote, factoryEta, deliveryDate, recipient, phone, address, items: itemsString 
-                });
+                const success = await onUpdateDetails(order.orderId, { orderType, internalNote, factoryEta, deliveryDate, recipient, phone, address, items: itemsString });
                 if (success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
               } finally { setIsSavingDetails(false); }
           };
@@ -391,6 +382,10 @@
           const [apiError, setApiError] = useState(null);
           const [lastUpdated, setLastUpdated] = useState("");
           const [activeTab, setActiveTab] = useState('all');
+          
+          const [currentView, setCurrentView] = useState('orders'); 
+          const [invSearchText, setInvSearchText] = useState("");
+          const [invSearchQty, setInvSearchQty] = useState("");
 
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
@@ -413,25 +408,119 @@
 
           useEffect(() => {
             let res = orders;
-            
-            // 1. Tab Filtering (快速分類)
-            if (activeTab === 'received') {
-                res = res.filter(o => !o.status); // 無狀態 = 已接收(待處理)
-            } else if (activeTab === 'hold') {
-                res = res.filter(o => Utils.safeStr(o.orderType).includes('保留')); // 訂單分類包含 "保留"
-            } else if (activeTab === 'confirmed') {
-                res = res.filter(o => o.status === '已確認庫存');
-            } else if (activeTab === 'shipped') {
-                res = res.filter(o => o.status === '已排單出貨');
-            }
+            if (activeTab === 'received') res = res.filter(o => !o.status);
+            else if (activeTab === 'hold') res = res.filter(o => Utils.safeStr(o.orderType).includes('保留'));
+            else if (activeTab === 'confirmed') res = res.filter(o => o.status === '已確認庫存');
+            else if (activeTab === 'shipped') res = res.filter(o => o.status === '已排單出貨');
 
-            // 2. Search Filtering
             if (searchTerm) {
               const t = searchTerm.toLowerCase();
               res = res.filter(o => Utils.safeStr(o.company).toLowerCase().includes(t) || Utils.safeStr(o.orderId).toLowerCase().includes(t));
             }
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
+
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.1: 支援 ID 與 Name 雙重比對) ---
+          const groupedInventory = useMemo(() => {
+              if (!invSearchText.trim() && !invSearchQty.trim()) return [];
+
+              const tStr = invSearchText.toLowerCase().trim();
+              const minQty = parseFloat(invSearchQty);
+              const hasMinQty = !isNaN(minQty);
+
+              // 1. 預先計算保留單
+              const reservations = {}; // { fuzzyKey: { total: 0, details: [] } }
+
+              orders.forEach(o => {
+                  const isHold = Utils.safeStr(o.orderType).includes('保留');
+                  const isShipped = o.status === '已排單出貨'; 
+                  
+                  if (isHold && !isShipped) {
+                      const rawItems = Utils.safeStr(o.items).split('\n').filter(l => l.trim() !== "");
+                      rawItems.forEach(line => {
+                          let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
+                          const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
+                          
+                          if (match) {
+                              const pName = Utils.cleanFuzzy(match[1]); // 這是訂單上的品名或型號
+                              const qty = Utils.parseQty(match[2]);
+                              
+                              if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
+                              reservations[pName].total += qty;
+                              reservations[pName].details.push({ company: o.company, qty: qty });
+                          }
+                      });
+                  }
+              });
+
+              // 2. 聚合所有產品
+              const allGroups = inventory.reduce((acc, curr) => {
+                  const qty = Utils.parseQty(curr.qty);
+                  if (qty <= 0) return acc;
+
+                  const key = `${curr.id}_${curr.name}`;
+                  
+                  if (!acc[key]) {
+                      // 修正：同時使用 ID 和 Name 來查找保留單
+                      // 這樣 "22113997" (ID) 或 "白色馬賽克" (Name) 寫在訂單裡都能對應到
+                      const cleanId = Utils.cleanFuzzy(curr.id);
+                      const cleanName = Utils.cleanFuzzy(curr.name);
+                      
+                      const resById = reservations[cleanId];
+                      const resByName = reservations[cleanName];
+
+                      let totalRes = 0;
+                      let detailsRes = [];
+
+                      // 合併 ID 匹配的保留
+                      if (resById) {
+                          totalRes += resById.total;
+                          detailsRes = [...detailsRes, ...resById.details];
+                      }
+                      
+                      // 合併 Name 匹配的保留 (避免與 ID 重複，雖然機率低，但在 key 相同時會重複)
+                      if (resByName && cleanName !== cleanId) {
+                          totalRes += resByName.total;
+                          detailsRes = [...detailsRes, ...resByName.details];
+                      }
+
+                      acc[key] = {
+                          id: curr.id,
+                          name: curr.name,
+                          spec: curr.spec,
+                          totalQty: 0,
+                          reservedQty: totalRes, // 使用修正後的總量
+                          reserveDetails: detailsRes, // 使用修正後的明細
+                          batches: []
+                      };
+                  }
+                  acc[key].totalQty += qty;
+                  acc[key].batches.push({ lot: curr.lot, qty: qty });
+                  return acc;
+              }, {});
+
+              // 3. 篩選與排序
+              const results = Object.values(allGroups).filter(group => {
+                  let matchText = true;
+                  let matchQty = true;
+
+                  if (tStr) {
+                      matchText = Utils.safeStr(group.id).toLowerCase().includes(tStr) ||
+                                  Utils.safeStr(group.name).toLowerCase().includes(tStr) ||
+                                  group.batches.some(b => Utils.safeStr(b.lot).toLowerCase().includes(tStr));
+                  }
+
+                  if (hasMinQty) {
+                      const available = group.totalQty - group.reservedQty;
+                      matchQty = available >= minQty;
+                  }
+
+                  return matchText && matchQty;
+              });
+
+              return results.sort((a, b) => b.totalQty - a.totalQty);
+
+          }, [inventory, orders, invSearchText, invSearchQty]);
 
           const sendCommand = async (p) => { 
             try { 
@@ -496,88 +585,225 @@
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 border-b md:border-b-0 border-white/5 shrink-0 font-sans">
                 <div className="mb-10 font-black text-xl tracking-tighter">TILE PARK <span className="block text-[10px] text-orange-500 font-mono tracking-widest font-normal opacity-80 uppercase">Warehouse Portal</span></div>
                 <nav className="space-y-2">
-                    <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#c25e00] text-white font-bold text-sm shadow-lg shadow-orange-900/40"><UI.File size={18} /> 訂單管理中心</button>
+                    {/* 左側選單切換 */}
+                    <button 
+                        onClick={() => setCurrentView('orders')}
+                        className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'orders' ? 'bg-[#c25e00] text-white shadow-lg shadow-orange-900/40' : 'text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <UI.File size={18} /> 訂單管理中心
+                    </button>
+                    <button 
+                        onClick={() => { setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty(""); }}
+                        className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'inventory' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/40' : 'text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <UI.Box size={18} /> 庫存查詢
+                    </button>
                 </nav>
                 <div className="mt-auto text-[10px] text-gray-500 font-mono text-center opacity-40">Last Sync: {lastUpdated}</div>
               </aside>
 
               <main className="flex-1 flex flex-col min-h-0 relative font-sans">
-                <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
-                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 font-bold">
-                      <h2 className="text-xl font-black text-gray-800 tracking-tight font-sans">訂單後台與庫存對應系統</h2>
-                      <div className="flex w-full sm:w-auto gap-2 font-sans font-bold">
-                        <div className="relative flex-1 sm:w-80 font-sans">
-                          <UI.Search className="absolute left-3 top-3 text-gray-400" size={16} />
-                          <input type="text" placeholder="搜尋客戶名稱或訂單單號..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 transition-all font-medium text-gray-800 font-sans" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
-                        </div>
-                        <button onClick={fetchAllData} className={`p-2.5 bg-white border border-gray-200 rounded-xl transition-all active:scale-90 ${loading ? 'animate-spin text-orange-500' : 'text-gray-500 hover:bg-gray-50'} font-sans font-bold`}><UI.Refresh size={20}/></button>
-                      </div>
-                  </div>
-                  
-                  {/* --- 快速分類標籤 Tabs --- */}
-                  <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    {tabs.map(tab => (
-                        <button 
-                            key={tab.id} 
-                            onClick={() => { setActiveTab(tab.id); setSelectedIds(new Set()); }}
-                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap border ${
-                                activeTab === tab.id 
-                                ? 'bg-[#c25e00] border-[#c25e00] text-white shadow-md' 
-                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:text-orange-600'
-                            }`}
-                        >
-                            {tab.label} <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>{tab.count}</span>
-                        </button>
-                    ))}
-                  </div>
-                </header>
+                {currentView === 'orders' ? (
+                    /* --- 訂單管理畫面 --- */
+                    <>
+                        <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
+                          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 font-bold">
+                              <h2 className="text-xl font-black text-gray-800 tracking-tight font-sans">訂單後台與庫存對應系統</h2>
+                              <div className="flex w-full sm:w-auto gap-2 font-sans font-bold">
+                                <div className="relative flex-1 sm:w-80 font-sans">
+                                  <UI.Search className="absolute left-3 top-3 text-gray-400" size={16} />
+                                  <input type="text" placeholder="搜尋客戶名稱或訂單單號..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 transition-all font-medium text-gray-800 font-sans" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+                                </div>
+                                <button onClick={fetchAllData} className={`p-2.5 bg-white border border-gray-200 rounded-xl transition-all active:scale-90 ${loading ? 'animate-spin text-orange-500' : 'text-gray-500 hover:bg-gray-50'} font-sans font-bold`}><UI.Refresh size={20}/></button>
+                              </div>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {tabs.map(tab => (
+                                <button 
+                                    key={tab.id} 
+                                    onClick={() => { setActiveTab(tab.id); setSelectedIds(new Set()); }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap border ${
+                                        activeTab === tab.id 
+                                        ? 'bg-[#c25e00] border-[#c25e00] text-white shadow-md' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:text-orange-600'
+                                    }`}
+                                >
+                                    {tab.label} <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>{tab.count}</span>
+                                </button>
+                            ))}
+                          </div>
+                        </header>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-32 font-sans">
-                    {apiError && (
-                      <div className="mb-6 p-5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3 animate-fade-in font-sans font-bold">
-                         <UI.Info size={20}/><span className="flex-1 font-sans">{apiError}</span>
-                         <button onClick={fetchAllData} className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 transition-colors shadow-sm font-sans font-bold">重新整理數據</button>
-                      </div>
-                    )}
-                    
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden font-sans">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left text-gray-700 font-sans">
-                                <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 border-b tracking-widest font-sans font-bold">
-                                    <tr>
-                                        <th className="p-4 w-12 text-center font-sans font-bold"><input type="checkbox" className="rounded" onChange={e => setSelectedIds(e.target.checked ? new Set(filteredOrders.map(o=>o.orderId)) : new Set())} checked={selectedIds.size > 0 && selectedIds.size === filteredOrders.length} /></th>
-                                        <th className="p-4 font-sans font-bold">單號</th><th className="p-4 text-center font-sans font-bold">狀態</th><th className="p-4 font-sans font-bold">客戶名稱</th><th className="p-4 font-sans font-bold text-center">預計出貨</th><th className="p-4 text-right pr-6 font-sans font-bold">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 font-medium font-sans font-bold">
-                                    {filteredOrders.length === 0 && !loading ? (
-                                      <tr><td colSpan="6" className="p-10 text-center text-gray-400 italic font-normal font-sans font-bold">目前無訂單數據。</td></tr>
-                                    ) : (
-                                      filteredOrders.map(o => (
-                                        <tr key={o.orderId} className={`hover:bg-orange-50/30 transition-colors cursor-pointer ${selectedIds.has(o.orderId) ? 'bg-orange-50/50' : ''} font-sans`} onClick={()=>setSelectedOrder(o)}>
-                                            <td className="p-4 text-center font-sans font-bold" onClick={e=>e.stopPropagation()}><input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 font-sans font-bold" checked={selectedIds.has(o.orderId)} onChange={()=>{ const n = new Set(selectedIds); n.has(o.orderId) ? n.delete(o.orderId) : n.add(o.orderId); setSelectedIds(n); }} /></td>
-                                            <td className="p-4 font-bold font-mono text-gray-800 font-sans font-bold">{o.orderId}</td>
-                                            <td className="p-4 text-center font-sans"><StatusBadge status={o.status} /></td>
-                                            <td className="p-4 font-bold font-sans text-gray-800 font-sans">{o.company}</td>
-                                            <td className="p-4 text-gray-500 font-mono text-xs font-sans text-center">{Utils.safeDate(o.deliveryDate) || '未排程'}</td>
-                                            <td className="p-4 text-right pr-6 font-sans font-bold"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-orange-100 hover:text-orange-600 transition-all font-bold font-sans">Detail</button></td>
-                                        </tr>
-                                      ))
-                                    )}
-                                </tbody>
-                            </table>
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-32 font-sans">
+                            {apiError && (
+                              <div className="mb-6 p-5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3 animate-fade-in font-sans font-bold">
+                                 <UI.Info size={20}/><span className="flex-1 font-sans">{apiError}</span>
+                                 <button onClick={fetchAllData} className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 transition-colors shadow-sm font-sans font-bold">重新整理數據</button>
+                              </div>
+                            )}
+                            
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden font-sans">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left text-gray-700 font-sans">
+                                        <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 border-b tracking-widest font-sans font-bold">
+                                            <tr>
+                                                <th className="p-4 w-12 text-center font-sans font-bold"><input type="checkbox" className="rounded" onChange={e => setSelectedIds(e.target.checked ? new Set(filteredOrders.map(o=>o.orderId)) : new Set())} checked={selectedIds.size > 0 && selectedIds.size === filteredOrders.length} /></th>
+                                                <th className="p-4 font-sans font-bold">單號</th><th className="p-4 text-center font-sans font-bold">狀態</th><th className="p-4 font-sans font-bold">客戶名稱</th><th className="p-4 font-sans font-bold text-center">預計出貨</th><th className="p-4 text-right pr-6 font-sans font-bold">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 font-medium font-sans font-bold">
+                                            {filteredOrders.length === 0 && !loading ? (
+                                              <tr><td colSpan="6" className="p-10 text-center text-gray-400 italic font-normal font-sans font-bold">目前無訂單數據。</td></tr>
+                                            ) : (
+                                              filteredOrders.map(o => (
+                                                <tr key={o.orderId} className={`hover:bg-orange-50/30 transition-colors cursor-pointer ${selectedIds.has(o.orderId) ? 'bg-orange-50/50' : ''} font-sans`} onClick={()=>setSelectedOrder(o)}>
+                                                    <td className="p-4 text-center font-sans font-bold" onClick={e=>e.stopPropagation()}><input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 font-sans font-bold" checked={selectedIds.has(o.orderId)} onChange={()=>{ const n = new Set(selectedIds); n.has(o.orderId) ? n.delete(o.orderId) : n.add(o.orderId); setSelectedIds(n); }} /></td>
+                                                    <td className="p-4 font-bold font-mono text-gray-800 font-sans font-bold">{o.orderId}</td>
+                                                    <td className="p-4 text-center font-sans"><StatusBadge status={o.status} /></td>
+                                                    <td className="p-4 font-bold font-sans text-gray-800 font-sans">{o.company}</td>
+                                                    <td className="p-4 text-gray-500 font-mono text-xs font-sans text-center">{Utils.safeDate(o.deliveryDate) || '未排程'}</td>
+                                                    <td className="p-4 text-right pr-6 font-sans font-bold"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-orange-100 hover:text-orange-600 transition-all font-bold font-sans">Detail</button></td>
+                                                </tr>
+                                              ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                {selectedIds.size > 0 && (
-                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/95 border border-gray-200 shadow-2xl rounded-2xl px-6 py-4 flex items-center gap-6 animate-slide-up z-40 font-bold font-sans font-bold">
-                        <span className="text-sm font-black text-gray-600 border-r border-gray-200 pr-6 whitespace-nowrap font-sans">已選 <span className="text-orange-600 font-mono font-bold font-bold">{selectedIds.size}</span> 筆</span>
-                        <div className="flex gap-3">
-                            <button onClick={()=>handleStatusUpdate(null, '已確認庫存')} className="flex items-center gap-2 text-xs font-black text-teal-700 bg-teal-50 px-4 py-2 rounded-xl border border-teal-100 shadow-sm hover:bg-teal-100 transition-all font-sans font-bold"><UI.Check size={16}/> 確認庫存</button>
-                            <button onClick={()=>handleStatusUpdate(null, '已排單出貨')} className="flex items-center gap-2 text-xs font-black text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 shadow-sm hover:bg-blue-100 transition-all font-sans font-bold"><UI.Truck size={16}/> 排單出貨</button>
+                        {selectedIds.size > 0 && (
+                            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/95 border border-gray-200 shadow-2xl rounded-2xl px-6 py-4 flex items-center gap-6 animate-slide-up z-40 font-bold font-sans font-bold">
+                                <span className="text-sm font-black text-gray-600 border-r border-gray-200 pr-6 whitespace-nowrap font-sans">已選 <span className="text-orange-600 font-mono font-bold font-bold">{selectedIds.size}</span> 筆</span>
+                                <div className="flex gap-3">
+                                    <button onClick={()=>handleStatusUpdate(null, '已確認庫存')} className="flex items-center gap-2 text-xs font-black text-teal-700 bg-teal-50 px-4 py-2 rounded-xl border border-teal-100 shadow-sm hover:bg-teal-100 transition-all font-sans font-bold"><UI.Check size={16}/> 確認庫存</button>
+                                    <button onClick={()=>handleStatusUpdate(null, '已排單出貨')} className="flex items-center gap-2 text-xs font-black text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 shadow-sm hover:bg-blue-100 transition-all font-sans font-bold"><UI.Truck size={16}/> 排單出貨</button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    /* --- 庫存查詢畫面 (v4.0: 包含保留單功能) --- */
+                    <>
+                        <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
+                            <h2 className="text-xl font-black text-gray-800 tracking-tight font-sans">庫存快速查詢</h2>
+                            <div className="flex gap-4 w-full max-w-2xl">
+                                <div className="relative flex-1">
+                                    <UI.Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="輸入產品名稱或貨號..." 
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all font-bold text-gray-800 font-sans shadow-sm" 
+                                        value={invSearchText} 
+                                        onChange={e=>setInvSearchText(e.target.value)} 
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="relative w-40">
+                                    <UI.Filter className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                                    <input 
+                                        type="number" 
+                                        placeholder="最低數量..." 
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all font-bold text-gray-800 font-sans shadow-sm" 
+                                        value={invSearchQty} 
+                                        onChange={e=>setInvSearchQty(e.target.value)} 
+                                    />
+                                </div>
+                            </div>
+                        </header>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-32 font-sans bg-gray-50">
+                            {(!invSearchText.trim() && !invSearchQty.trim()) ? (
+                                <div className="text-center py-20 text-gray-400 animate-fade-in">
+                                    <UI.Search size={48} className="mx-auto mb-4 opacity-20"/>
+                                    <p className="font-bold">請輸入關鍵字或數量開始查詢</p>
+                                    <p className="text-xs mt-1 opacity-60">支援：品名/貨號 + 自動計算保留單庫存</p>
+                                </div>
+                            ) : groupedInventory.length === 0 ? (
+                                <div className="text-center py-20 text-gray-400">
+                                    <UI.Box size={48} className="mx-auto mb-4 opacity-20"/>
+                                    <p className="font-bold">找不到相關庫存資料</p>
+                                    <p className="text-xs mt-1 opacity-60">請嘗試調整搜尋條件</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
+                                    {groupedInventory.map((item, idx) => {
+                                        const available = item.totalQty - item.reservedQty;
+                                        const isLow = available < 0; // 超賣警示
+                                        
+                                        return (
+                                            <div key={idx} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:border-teal-300 transition-all group ${isLow ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200'}`}>
+                                                <div className="p-5 border-b border-gray-100 flex justify-between items-start bg-gradient-to-br from-white to-gray-50">
+                                                    <div>
+                                                        <span className="inline-block px-2 py-1 rounded bg-teal-100 text-teal-800 text-[10px] font-black font-mono mb-2">{item.id}</span>
+                                                        <h3 className="font-black text-gray-800 text-lg leading-tight">{item.name}</h3>
+                                                        <p className="text-xs text-gray-400 mt-1 font-bold">規格: {item.spec}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Stock</span>
+                                                        <span className="text-3xl font-black text-teal-600 font-mono tracking-tight">{item.totalQty.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* --- 保留與可用庫存顯示 --- */}
+                                                <div className="px-5 py-3 bg-white border-b border-gray-50 flex justify-between items-center">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">保留中 Reserved</span>
+                                                        <span className={`font-mono font-bold ${item.reservedQty > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
+                                                            {item.reservedQty > 0 ? `-${item.reservedQty.toLocaleString()}` : '0'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right flex flex-col">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">可用 Available</span>
+                                                        <span className={`font-mono text-xl font-black ${isLow ? 'text-red-600' : 'text-teal-700'}`}>
+                                                            {available.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* --- 保留明細 (若有) --- */}
+                                                {item.reservedQty > 0 && (
+                                                    <div className="bg-orange-50 px-5 py-2 border-b border-orange-100">
+                                                        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                            <UI.Lock size={10} /> 客戶保留明細
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {item.reserveDetails.map((det, dIdx) => (
+                                                                <div key={dIdx} className="flex justify-between text-xs text-orange-800 font-medium">
+                                                                    <span>{det.company || "未具名客戶"}</span>
+                                                                    <span className="font-mono">{det.qty}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="p-4 bg-gray-50/50">
+                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span> 
+                                                        庫存批號清單
+                                                        <span className="w-full h-px bg-gray-200"></span>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {item.batches.map((batch, bIdx) => (
+                                                            <div key={bIdx} className="flex justify-between items-center text-sm p-2 bg-white rounded border border-gray-100 shadow-sm">
+                                                                <span className="font-mono font-bold text-gray-600">
+                                                                    <span className="text-[10px] text-gray-300 mr-2">BATCH</span>
+                                                                    {batch.lot || "無批號"}
+                                                                </span>
+                                                                <span className="font-black text-gray-800 font-mono">{batch.qty.toLocaleString()}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    </>
                 )}
               </main>
 
@@ -590,3 +816,4 @@
     </script>
 </body>
 </html>
+
