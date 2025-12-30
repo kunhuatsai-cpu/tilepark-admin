@@ -45,7 +45,10 @@
                 return s.includes('T') ? s.split('T')[0] : s;
             },
             parseQty: (v) => {
-                const num = parseFloat(Utils.safeStr(v).replace(/[^\d.]/g, ''));
+                // [修正] 移除原本會過濾掉負號的正則表達式
+                // 改為只移除逗號，讓 parseFloat 自動處理負號和小數點
+                const s = Utils.safeStr(v).replace(/,/g, '');
+                const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
             cleanFuzzy: (v) => Utils.safeStr(v).toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -181,7 +184,10 @@
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
               
               const matches = inventory.filter(inv => {
+                // 讀取庫存數量 (現在可正確讀取負數)
                 const q = Utils.parseQty(inv.qty);
+                // [過濾] 如果數量 <= 0 (包含負數)，則隱藏不顯示
+                // 因為 parseQty 修正後能讀到 -15，所以 -15 <= 0 為真，這筆就會被濾掉
                 if (q <= 0) return false;
                 
                 const invID = Utils.safeStr(inv.id).toLowerCase();
@@ -194,6 +200,7 @@
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
+                // 加總時，因為前面 filter 已經濾掉負數，所以這裡只會加總正數庫存
                 acc[key].total += Utils.parseQty(curr.qty);
                 acc[key].lots.push(curr);
                 return acc;
