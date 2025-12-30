@@ -45,9 +45,7 @@
                 return s.includes('T') ? s.split('T')[0] : s;
             },
             parseQty: (v) => {
-                // [修正] 移除原本會過濾掉負號的正則表達式
-                // 改為只移除逗號，讓 parseFloat 自動處理負號和小數點
-                const s = Utils.safeStr(v).replace(/,/g, '');
+                const s = Utils.safeStr(v).replace(/,/g, ''); 
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
@@ -93,7 +91,8 @@
           DB: (p) => <IconWrap {...p} d={<><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></>} />,
           Trash: (p) => <IconWrap {...p} d={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
           Info: (p) => <IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>} />,
-          File: (p) => <IconWrap {...p} d={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />
+          File: (p) => <IconWrap {...p} d={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />,
+          User: (p) => <IconWrap {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -106,13 +105,17 @@
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           
-          // --- 關鍵變數定義 (已確認 & 已出貨) ---
           const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
           const isShipped = order.status === '已排單出貨';
 
+          const [orderType, setOrderType] = useState(Utils.safeStr(order.orderType));
           const [internalNote, setInternalNote] = useState(Utils.safeStr(order.internalNote));
           const [factoryEta, setFactoryEta] = useState(Utils.safeStr(order.factoryEta));
           const [deliveryDate, setDeliveryDate] = useState(Utils.safeDate(order.deliveryDate));
+          const [recipient, setRecipient] = useState(Utils.safeStr(order.recipient || order.contactName)); 
+          const [phone, setPhone] = useState(Utils.safeStr(order.phone));
+          const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
+
           const [isSavingDetails, setIsSavingDetails] = useState(false);
           const [saveSuccess, setSaveSuccess] = useState(false);
           
@@ -120,57 +123,25 @@
               try {
                 const rawItems = Utils.safeStr(order.items).split('\n').filter(l => l.trim() !== "");
                 return rawItems.map(line => {
-                    // 0. 預處理：全形空格轉半形，移除不必要的引號
-                    let s = Utils.safeStr(line)
-                        .replace(/\u3000/g, ' ') // 全形空格 -> 半形
-                        .replace(/^["']|["']$/g, '') // 移除頭尾引號 (Excel 複製有時會有)
-                        .trim();
-
-                    // 1. 序號移除邏輯 (僅移除 1. 或 10. 這種3位數以下的開頭，保留 8 碼貨號)
+                    let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // --- 解析策略 v2.4 (雙重貪婪匹配 + 最短尾部原則) ---
-                    // 目標：解決 "2.25x15.15cm x 15張" (X分隔) 和 "2.25x15.15cm 15張" (空格分隔) 的衝突
-                    // 核心概念：真正的數量通常在字串最尾端。因此，哪種切分方式剩下的「單位(Unit)」越短，那個切分通常越正確。
-
-                    // 策略 A: 貪婪 X 分隔 (找字串中【最後一個】x)
-                    // ^(.*) 是貪婪的，會吃到最後一個 x 才停下來
                     const matchX = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
-                    
-                    // 策略 B: 貪婪 空格 分隔 (找字串中【最後一個】空格+數字)
                     const matchSp = s.match(/^(.*)\s+([0-9,\.]+)\s*(.*)$/);
                     
                     let bestMatch = null;
-
-                    // 比較邏輯：
-                    if (matchX && !matchSp) {
-                        bestMatch = matchX;
-                    } else if (!matchX && matchSp) {
-                        bestMatch = matchSp;
-                    } else if (matchX && matchSp) {
-                        // 兩者都有，比較尾巴 (Group 3 Unit) 的長度
-                        // 例如 "2.25x15.15cm 15張"
-                        // matchX 會抓到 2.25【x】15.15 -> 單位是 "cm 15張" (長度長) -> 放棄
-                        // matchSp 會抓到 ...cm【 】15 -> 單位是 "張" (長度短) -> 選用
+                    if (matchX && !matchSp) bestMatch = matchX;
+                    else if (!matchX && matchSp) bestMatch = matchSp;
+                    else if (matchX && matchSp) {
                         const lenX = matchX[3].trim().length;
                         const lenSp = matchSp[3].trim().length;
-                        
-                        // 如果 X 的單位比 Space 的單位短 (或相等)，優先用 X (因為 x 是更強的分隔意圖)
                         if (lenX <= lenSp) bestMatch = matchX;
                         else bestMatch = matchSp;
                     }
 
                     if (bestMatch) {
-                        return { 
-                            name: bestMatch[1].trim(), 
-                            originalQty: bestMatch[2].trim(), 
-                            currentQty: bestMatch[2].trim(), 
-                            unit: bestMatch[3].trim(), 
-                            note: '' 
-                        };
+                        return { name: bestMatch[1].trim(), originalQty: bestMatch[2].trim(), currentQty: bestMatch[2].trim(), unit: bestMatch[3].trim(), note: '' };
                     }
-
-                    // 3. Fallback: 真的無法識別，整行當作品名，數量設 1
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
                 });
               } catch (e) {
@@ -184,23 +155,16 @@
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
               
               const matches = inventory.filter(inv => {
-                // 讀取庫存數量 (現在可正確讀取負數)
                 const q = Utils.parseQty(inv.qty);
-                // [過濾] 如果數量 <= 0 (包含負數)，則隱藏不顯示
-                // 因為 parseQty 修正後能讀到 -15，所以 -15 <= 0 為真，這筆就會被濾掉
-                if (q <= 0) return false;
-                
+                if (q <= 0) return false; 
                 const invID = Utils.safeStr(inv.id).toLowerCase();
                 const cleanID = Utils.cleanFuzzy(inv.id);
-                
-                return (invID && targetFull.includes(invID)) || 
-                       (cleanID && targetCleaned.includes(cleanID));
+                return (invID && targetFull.includes(invID)) || (cleanID && targetCleaned.includes(cleanID));
               });
 
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
-                // 加總時，因為前面 filter 已經濾掉負數，所以這裡只會加總正數庫存
                 acc[key].total += Utils.parseQty(curr.qty);
                 acc[key].lots.push(curr);
                 return acc;
@@ -218,18 +182,19 @@
               setIsSavingDetails(true);
               try {
                 const itemsString = editableItems.map(i => `${i.name} x ${i.currentQty}${i.unit} ${i.note ? `(${i.note})` : ''}`).join('\n');
-                const success = await onUpdateDetails(order.orderId, { internalNote, factoryEta, deliveryDate, items: itemsString });
+                const success = await onUpdateDetails(order.orderId, { 
+                    orderType, internalNote, factoryEta, deliveryDate, recipient, phone, address, items: itemsString 
+                });
                 if (success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
               } finally { setIsSavingDetails(false); }
           };
 
-          // 判斷保留單的顏色 (相容性寫法)
-          const isHoldOrder = (order.orderType || '').includes('保留');
+          const isHoldOrder = (orderType || '').includes('保留');
 
           return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
-                <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0`}>
+                <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">A06REPORT Warehouse Management</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
@@ -238,9 +203,7 @@
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans">
-                  {/* --- 包裹 ErrorBoundary --- */}
                   <ErrorBoundary onClose={onClose}>
-                      {/* --- 控制項 --- */}
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all ${isStockConfirmed ? 'bg-teal-500 border-teal-500 shadow-lg' : 'bg-white border-gray-200'}`}>
@@ -250,19 +213,7 @@
                                     <span className={`font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認庫存</span>
                                     <span className="text-xs text-gray-400">核對現場存貨與 A06REPORT</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={isStockConfirmed} 
-                                    onChange={() => {
-                                        // 允許切換/取消
-                                        // 如果當前是 '已確認庫存' 或更進階的 '已排單出貨'，點擊此按鈕代表想「取消確認」，變回空狀態 (已接收)
-                                        // 如果當前沒確認，點擊則變成 '已確認庫存'
-                                        const newStatus = isStockConfirmed ? '' : '已確認庫存';
-                                        onUpdateStatus([order.orderId], newStatus);
-                                    }} 
-                                    disabled={isProcessing} 
-                                />
+                                <input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => onUpdateStatus([order.orderId], isStockConfirmed ? '' : '已確認庫存')} disabled={isProcessing} />
                             </label>
                             <div className="hidden sm:block w-px bg-gray-100 h-14 self-center"></div>
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
@@ -273,23 +224,62 @@
                                     <span className={`font-bold ${isShipped ? 'text-blue-700' : 'text-gray-700'}`}>已排單出貨</span>
                                     <span className="text-xs text-gray-400">安排物流派送並結案</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={isShipped} 
-                                    onChange={() => {
-                                        // 允許切換/取消
-                                        // 如果當前已出貨，點擊代表「取消出貨」，退回 '已確認庫存'
-                                        // 如果當前沒出貨，點擊則變成 '已排單出貨'
-                                        const newStatus = isShipped ? '已確認庫存' : '已排單出貨';
-                                        onUpdateStatus([order.orderId], newStatus);
-                                    }} 
-                                    disabled={isProcessing} 
-                                />
+                                <input type="checkbox" className="hidden" checked={isShipped} onChange={() => onUpdateStatus([order.orderId], isShipped ? '已確認庫存' : '已排單出貨')} disabled={isProcessing} />
                             </label>
                       </div>
 
-                      {/* --- 商品清單 --- */}
+                      <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
+                                <UI.Truck size={18} className="text-orange-500"/> 物流與備註資訊
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                 <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">預計出貨日 (Delivery)</label>
+                                    <input type="date" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg font-mono text-sm bg-gray-50 focus:border-orange-500 outline-none transition-colors font-bold text-gray-700"/>
+                                 </div>
+                                 <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">訂單分類 (Type)</label>
+                                    <input type="text" value={orderType} onChange={e=>setOrderType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-orange-500 outline-none transition-colors font-bold text-gray-700" placeholder="例如: 保留單, 急件"/>
+                                 </div>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">工廠交期/船班 (Factory ETA)</label>
+                                    <input type="text" value={factoryEta} onChange={e=>setFactoryEta(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-orange-500 outline-none transition-colors font-bold text-gray-700" placeholder="例如: 12/25 結關"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">內部備註 (Internal Note)</label>
+                                    <textarea value={internalNote} onChange={e=>setInternalNote(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 h-24 focus:border-orange-500 outline-none transition-colors" placeholder="公司內部註記事項..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
+                                <UI.User size={18} className="text-blue-500"/> 客戶收貨資訊 (可編輯)
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">聯絡人 (Contact)</label>
+                                    <input type="text" value={recipient} onChange={e=>setRecipient(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">電話 (Phone)</label>
+                                    <input type="text" value={phone} onChange={e=>setPhone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800 font-mono"/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1">送貨地址 (Address)</label>
+                                <input type="text" value={address} onChange={e=>setAddress(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800"/>
+                            </div>
+                            <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-600 border border-blue-100 flex items-start gap-2">
+                                <UI.Info size={14} className="mt-0.5 shrink-0"/>
+                                提示：修改此處資訊後按下「儲存」，系統將更新訂單的收貨資料。
+                            </div>
+                        </div>
+                      </div>
+
                       <section className="mb-8 font-sans">
                         <div className="flex justify-between items-center mb-4 px-1">
                             <h3 className="text-xs font-black uppercase tracking-widest text-orange-600 font-bold font-sans">訂單商品與庫存批號對照</h3>
@@ -374,7 +364,6 @@
                         </div>
                       </section>
 
-                      {/* --- 操作區 --- */}
                       <div className="pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 font-sans font-bold">
                         <button onClick={() => confirm(`確定刪除訂單 #${order.orderId}？此操作不可撤回。`) && onDelete([order.orderId]) && onClose()} className="text-red-400 hover:text-red-600 text-sm font-bold flex items-center gap-1.5 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors font-sans"><UI.Trash size={16}/> 刪除單據</button>
                         <button onClick={handleSave} disabled={isSavingDetails} className={`w-full sm:w-auto px-10 py-3.5 rounded-xl text-sm font-black text-white transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95 ${saveSuccess ? 'bg-green-600 shadow-green-100' : 'bg-[#c25e00] hover:bg-[#a04d00] shadow-orange-100'} font-sans font-bold`}>
@@ -401,6 +390,7 @@
           const [loading, setLoading] = useState(false);
           const [apiError, setApiError] = useState(null);
           const [lastUpdated, setLastUpdated] = useState("");
+          const [activeTab, setActiveTab] = useState('all');
 
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
@@ -423,12 +413,25 @@
 
           useEffect(() => {
             let res = orders;
+            
+            // 1. Tab Filtering (快速分類)
+            if (activeTab === 'received') {
+                res = res.filter(o => !o.status); // 無狀態 = 已接收(待處理)
+            } else if (activeTab === 'hold') {
+                res = res.filter(o => Utils.safeStr(o.orderType).includes('保留')); // 訂單分類包含 "保留"
+            } else if (activeTab === 'confirmed') {
+                res = res.filter(o => o.status === '已確認庫存');
+            } else if (activeTab === 'shipped') {
+                res = res.filter(o => o.status === '已排單出貨');
+            }
+
+            // 2. Search Filtering
             if (searchTerm) {
               const t = searchTerm.toLowerCase();
               res = res.filter(o => Utils.safeStr(o.company).toLowerCase().includes(t) || Utils.safeStr(o.orderId).toLowerCase().includes(t));
             }
             setFilteredOrders(res);
-          }, [searchTerm, orders]);
+          }, [searchTerm, orders, activeTab]);
 
           const sendCommand = async (p) => { 
             try { 
@@ -450,7 +453,6 @@
             const targetIds = ids || Array.from(selectedIds);
             const action = status === 'delete' ? 'delete' : 'updateStatus';
             
-            // 樂觀更新 (先更新 UI)
             if (status === 'delete') {
                 setOrders(prev => prev.filter(o => !targetIds.includes(o.orderId)));
                 if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(null);
@@ -460,10 +462,8 @@
             }
             setSelectedIds(new Set());
 
-            // 發送指令
             const success = await sendCommand({ action, status, ids: targetIds });
             if (!success) {
-                // 若失敗則重新抓取數據還原
                 fetchAllData();
                 alert("操作失敗，請檢查網路連線");
             }
@@ -482,6 +482,14 @@
               </div>
             );
           }
+
+          const tabs = [
+              { id: 'all', label: '全部', count: orders.length },
+              { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
+              { id: 'hold', label: '保留單', count: orders.filter(o => Utils.safeStr(o.orderType).includes('保留')).length },
+              { id: 'confirmed', label: '已確認', count: orders.filter(o => o.status === '已確認庫存').length },
+              { id: 'shipped', label: '已出貨', count: orders.filter(o => o.status === '已排單出貨').length },
+          ];
 
           return (
             <div className="h-screen w-full bg-gray-100 flex flex-col md:flex-row overflow-hidden text-gray-800 font-sans font-bold">
@@ -504,6 +512,23 @@
                         </div>
                         <button onClick={fetchAllData} className={`p-2.5 bg-white border border-gray-200 rounded-xl transition-all active:scale-90 ${loading ? 'animate-spin text-orange-500' : 'text-gray-500 hover:bg-gray-50'} font-sans font-bold`}><UI.Refresh size={20}/></button>
                       </div>
+                  </div>
+                  
+                  {/* --- 快速分類標籤 Tabs --- */}
+                  <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {tabs.map(tab => (
+                        <button 
+                            key={tab.id} 
+                            onClick={() => { setActiveTab(tab.id); setSelectedIds(new Set()); }}
+                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap border ${
+                                activeTab === tab.id 
+                                ? 'bg-[#c25e00] border-[#c25e00] text-white shadow-md' 
+                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:text-orange-600'
+                            }`}
+                        >
+                            {tab.label} <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>{tab.count}</span>
+                        </button>
+                    ))}
                   </div>
                 </header>
 
