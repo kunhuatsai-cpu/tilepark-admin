@@ -240,10 +240,22 @@
                                     {isStockConfirmed ? <UI.Check size={28} className="text-white" /> : <UI.DB size={24} className="text-gray-300" />}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className={`font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認批號庫存</span>
+                                    <span className={`font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認庫存</span>
                                     <span className="text-xs text-gray-400">核對現場存貨與 A06REPORT</span>
                                 </div>
-                                <input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => !isStockConfirmed && onUpdateStatus([order.orderId], '已確認庫存')} disabled={isProcessing || isStockConfirmed} />
+                                <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={isStockConfirmed} 
+                                    onChange={() => {
+                                        // 允許切換/取消
+                                        // 如果當前是 '已確認庫存' 或更進階的 '已排單出貨'，點擊此按鈕代表想「取消確認」，變回空狀態 (已接收)
+                                        // 如果當前沒確認，點擊則變成 '已確認庫存'
+                                        const newStatus = isStockConfirmed ? '' : '已確認庫存';
+                                        onUpdateStatus([order.orderId], newStatus);
+                                    }} 
+                                    disabled={isProcessing} 
+                                />
                             </label>
                             <div className="hidden sm:block w-px bg-gray-100 h-14 self-center"></div>
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
@@ -254,7 +266,19 @@
                                     <span className={`font-bold ${isShipped ? 'text-blue-700' : 'text-gray-700'}`}>已排單出貨</span>
                                     <span className="text-xs text-gray-400">安排物流派送並結案</span>
                                 </div>
-                                <input type="checkbox" className="hidden" checked={isShipped} onChange={() => !isShipped && onUpdateStatus([order.orderId], '已排單出貨')} disabled={isProcessing || isShipped} />
+                                <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={isShipped} 
+                                    onChange={() => {
+                                        // 允許切換/取消
+                                        // 如果當前已出貨，點擊代表「取消出貨」，退回 '已確認庫存'
+                                        // 如果當前沒出貨，點擊則變成 '已排單出貨'
+                                        const newStatus = isShipped ? '已確認庫存' : '已排單出貨';
+                                        onUpdateStatus([order.orderId], newStatus);
+                                    }} 
+                                    disabled={isProcessing} 
+                                />
                             </label>
                       </div>
 
