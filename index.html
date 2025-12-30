@@ -117,27 +117,57 @@
               try {
                 const rawItems = Utils.safeStr(order.items).split('\n').filter(l => l.trim() !== "");
                 return rawItems.map(line => {
-                    let s = Utils.safeStr(line).replace(/^(\d+[\.\s]+)/, ''); // 移除序號 1. 2.
-                    
-                    // --- 修正後的強效解析邏輯 (v2.1 Fix) ---
-                    // 1. 支援 "型號 x 數量" 格式 (如 22113997 x 500張)
-                    // 2. 允許 x 前後空白，允許全形符號，允許逗號在數字中
-                    // Group 1: Name (非貪婪匹配，直到遇到 x)
-                    // Group 2: Qty (數字，可含逗號和小數點)
-                    // Group 3: Unit (剩餘部分)
-                    const match = s.match(/^(.*?)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
+                    // 0. 預處理：全形空格轉半形，移除不必要的引號
+                    let s = Utils.safeStr(line)
+                        .replace(/\u3000/g, ' ') // 全形空格 -> 半形
+                        .replace(/^["']|["']$/g, '') // 移除頭尾引號 (Excel 複製有時會有)
+                        .trim();
 
-                    if (match) {
+                    // 1. 序號移除邏輯 (僅移除 1. 或 10. 這種3位數以下的開頭，保留 8 碼貨號)
+                    s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
+                    
+                    // --- 解析策略 v2.4 (雙重貪婪匹配 + 最短尾部原則) ---
+                    // 目標：解決 "2.25x15.15cm x 15張" (X分隔) 和 "2.25x15.15cm 15張" (空格分隔) 的衝突
+                    // 核心概念：真正的數量通常在字串最尾端。因此，哪種切分方式剩下的「單位(Unit)」越短，那個切分通常越正確。
+
+                    // 策略 A: 貪婪 X 分隔 (找字串中【最後一個】x)
+                    // ^(.*) 是貪婪的，會吃到最後一個 x 才停下來
+                    const matchX = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
+                    
+                    // 策略 B: 貪婪 空格 分隔 (找字串中【最後一個】空格+數字)
+                    const matchSp = s.match(/^(.*)\s+([0-9,\.]+)\s*(.*)$/);
+                    
+                    let bestMatch = null;
+
+                    // 比較邏輯：
+                    if (matchX && !matchSp) {
+                        bestMatch = matchX;
+                    } else if (!matchX && matchSp) {
+                        bestMatch = matchSp;
+                    } else if (matchX && matchSp) {
+                        // 兩者都有，比較尾巴 (Group 3 Unit) 的長度
+                        // 例如 "2.25x15.15cm 15張"
+                        // matchX 會抓到 2.25【x】15.15 -> 單位是 "cm 15張" (長度長) -> 放棄
+                        // matchSp 會抓到 ...cm【 】15 -> 單位是 "張" (長度短) -> 選用
+                        const lenX = matchX[3].trim().length;
+                        const lenSp = matchSp[3].trim().length;
+                        
+                        // 如果 X 的單位比 Space 的單位短 (或相等)，優先用 X (因為 x 是更強的分隔意圖)
+                        if (lenX <= lenSp) bestMatch = matchX;
+                        else bestMatch = matchSp;
+                    }
+
+                    if (bestMatch) {
                         return { 
-                            name: match[1].trim(), 
-                            originalQty: match[2].trim(), 
-                            currentQty: match[2].trim(), 
-                            unit: match[3].trim(), 
+                            name: bestMatch[1].trim(), 
+                            originalQty: bestMatch[2].trim(), 
+                            currentQty: bestMatch[2].trim(), 
+                            unit: bestMatch[3].trim(), 
                             note: '' 
                         };
                     }
 
-                    // 備用: 傳統的 fallback
+                    // 3. Fallback: 真的無法識別，整行當作品名，數量設 1
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
                 });
               } catch (e) {
