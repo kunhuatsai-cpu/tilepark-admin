@@ -34,7 +34,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
         
-        // 🔴 請確認此處網址是否為您最新的 Google Script 部署網址
+        // 🛑 請確認此處網址是否為您最新的 Google Script 部署網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
         // --- 安全工具集 ---
@@ -308,46 +308,46 @@
                                         </div>
                                     </div>
                                     <div className="p-4 font-sans">
-                                        {matches.length > 0 ? (
-                                            <div className="grid grid-cols-1 gap-4 font-sans">
-                                                {matches.map((group, gIdx) => (
-                                                    <div key={gIdx} className="border border-teal-100 bg-teal-50/10 rounded-lg p-3 font-sans">
-                                                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-teal-100">
-                                                            <div className="flex flex-col">
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <span className="font-mono text-[11px] font-black bg-teal-600 text-white px-1.5 py-0.5 rounded shadow-sm">{group.id}</span>
-                                                                    <span className="text-[13px] font-bold text-gray-700 truncate max-w-[200px]">{group.name}</span>
-                                                                </div>
-                                                                <div className="text-[10px] text-gray-400 font-medium">規格: {group.spec || '標規'}</div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-tighter">總剩餘庫存</span>
-                                                                <span className={`text-xl font-black ${group.total < currentNeed ? 'text-red-500 underline' : 'text-teal-600'}`}>{group.total}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-sans">
-                                                            {group.lots.map((lot, lIdx) => (
-                                                                <div key={lIdx} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col hover:border-teal-400 transition-colors group font-sans">
-                                                                    <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 group-hover:text-teal-500 tracking-wider">Batch 批號</span>
-                                                                    <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{lot.lot || "無標註"}</span>
-                                                                    <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-end">
-                                                                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">剩餘數量</span>
-                                                                        <span className="font-black text-[15px] text-teal-600 font-mono leading-none">{lot.qty}</span>
+                                            {matches.length > 0 ? (
+                                                <div className="grid grid-cols-1 gap-4 font-sans">
+                                                    {matches.map((group, gIdx) => (
+                                                        <div key={gIdx} className="border border-teal-100 bg-teal-50/10 rounded-lg p-3 font-sans">
+                                                            <div className="flex justify-between items-center mb-3 pb-2 border-b border-teal-100">
+                                                                <div className="flex flex-col">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <span className="font-mono text-[11px] font-black bg-teal-600 text-white px-1.5 py-0.5 rounded shadow-sm">{group.id}</span>
+                                                                        <span className="text-[13px] font-bold text-gray-700 truncate max-w-[200px]">{group.name}</span>
                                                                     </div>
+                                                                    <div className="text-[10px] text-gray-400 font-medium">規格: {group.spec || '標規'}</div>
                                                                 </div>
-                                                            ))}
+                                                                <div className="text-right">
+                                                                    <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-tighter">總剩餘庫存</span>
+                                                                    <span className={`text-xl font-black ${group.total < currentNeed ? 'text-red-500 underline' : 'text-teal-600'}`}>{group.total}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-sans">
+                                                                {group.lots.map((lot, lIdx) => (
+                                                                    <div key={lIdx} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col hover:border-teal-400 transition-colors group font-sans">
+                                                                            <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 group-hover:text-teal-500 tracking-wider">Batch 批號</span>
+                                                                            <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{lot.lot || "無標註"}</span>
+                                                                            <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-end">
+                                                                                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">剩餘數量</span>
+                                                                                <span className="font-black text-[15px] text-teal-600 font-mono leading-none">{lot.qty}</span>
+                                                                            </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300 font-sans">
-                                                <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
-                                                <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
-                                                <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
-                                                <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">提示：系統會嘗試比對試算表 A 欄貨號。請檢查貨號是否包含在品名中。</p>
-                                            </div>
-                                        )}
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300 font-sans">
+                                                    <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
+                                                    <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
+                                                    <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
+                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">提示：系統會嘗試比對試算表 A 欄貨號。請檢查貨號是否包含在品名中。</p>
+                                                </div>
+                                            )}
                                     </div>
                                 </div>
                               );
@@ -420,7 +420,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.1: 支援 ID 與 Name 雙重比對) ---
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.2: 加入包裝與用量欄位) ---
           const groupedInventory = useMemo(() => {
               if (!invSearchText.trim() && !invSearchQty.trim()) return [];
 
@@ -429,7 +429,7 @@
               const hasMinQty = !isNaN(minQty);
 
               // 1. 預先計算保留單
-              const reservations = {}; // { fuzzyKey: { total: 0, details: [] } }
+              const reservations = {}; 
 
               orders.forEach(o => {
                   const isHold = Utils.safeStr(o.orderType).includes('保留');
@@ -442,7 +442,7 @@
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           if (match) {
-                              const pName = Utils.cleanFuzzy(match[1]); // 這是訂單上的品名或型號
+                              const pName = Utils.cleanFuzzy(match[1]); 
                               const qty = Utils.parseQty(match[2]);
                               
                               if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
@@ -461,8 +461,6 @@
                   const key = `${curr.id}_${curr.name}`;
                   
                   if (!acc[key]) {
-                      // 修正：同時使用 ID 和 Name 來查找保留單
-                      // 這樣 "22113997" (ID) 或 "白色馬賽克" (Name) 寫在訂單裡都能對應到
                       const cleanId = Utils.cleanFuzzy(curr.id);
                       const cleanName = Utils.cleanFuzzy(curr.name);
                       
@@ -472,13 +470,11 @@
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      // 合併 ID 匹配的保留
                       if (resById) {
                           totalRes += resById.total;
                           detailsRes = [...detailsRes, ...resById.details];
                       }
                       
-                      // 合併 Name 匹配的保留 (避免與 ID 重複，雖然機率低，但在 key 相同時會重複)
                       if (resByName && cleanName !== cleanId) {
                           totalRes += resByName.total;
                           detailsRes = [...detailsRes, ...resByName.details];
@@ -488,9 +484,11 @@
                           id: curr.id,
                           name: curr.name,
                           spec: curr.spec,
+                          packing: curr.packing, // 🌟 抓取包裝
+                          usage: curr.usage,     // 🌟 抓取用量
                           totalQty: 0,
-                          reservedQty: totalRes, // 使用修正後的總量
-                          reserveDetails: detailsRes, // 使用修正後的明細
+                          reservedQty: totalRes, 
+                          reserveDetails: detailsRes, 
                           batches: []
                       };
                   }
@@ -646,28 +644,28 @@
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden font-sans">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm text-left text-gray-700 font-sans">
-                                        <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 border-b tracking-widest font-sans font-bold">
-                                            <tr>
-                                                <th className="p-4 w-12 text-center font-sans font-bold"><input type="checkbox" className="rounded" onChange={e => setSelectedIds(e.target.checked ? new Set(filteredOrders.map(o=>o.orderId)) : new Set())} checked={selectedIds.size > 0 && selectedIds.size === filteredOrders.length} /></th>
-                                                <th className="p-4 font-sans font-bold">單號</th><th className="p-4 text-center font-sans font-bold">狀態</th><th className="p-4 font-sans font-bold">客戶名稱</th><th className="p-4 font-sans font-bold text-center">預計出貨</th><th className="p-4 text-right pr-6 font-sans font-bold">操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 font-medium font-sans font-bold">
-                                            {filteredOrders.length === 0 && !loading ? (
-                                              <tr><td colSpan="6" className="p-10 text-center text-gray-400 italic font-normal font-sans font-bold">目前無訂單數據。</td></tr>
-                                            ) : (
-                                              filteredOrders.map(o => (
-                                                <tr key={o.orderId} className={`hover:bg-orange-50/30 transition-colors cursor-pointer ${selectedIds.has(o.orderId) ? 'bg-orange-50/50' : ''} font-sans`} onClick={()=>setSelectedOrder(o)}>
-                                                    <td className="p-4 text-center font-sans font-bold" onClick={e=>e.stopPropagation()}><input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 font-sans font-bold" checked={selectedIds.has(o.orderId)} onChange={()=>{ const n = new Set(selectedIds); n.has(o.orderId) ? n.delete(o.orderId) : n.add(o.orderId); setSelectedIds(n); }} /></td>
-                                                    <td className="p-4 font-bold font-mono text-gray-800 font-sans font-bold">{o.orderId}</td>
-                                                    <td className="p-4 text-center font-sans"><StatusBadge status={o.status} /></td>
-                                                    <td className="p-4 font-bold font-sans text-gray-800 font-sans">{o.company}</td>
-                                                    <td className="p-4 text-gray-500 font-mono text-xs font-sans text-center">{Utils.safeDate(o.deliveryDate) || '未排程'}</td>
-                                                    <td className="p-4 text-right pr-6 font-sans font-bold"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-orange-100 hover:text-orange-600 transition-all font-bold font-sans">Detail</button></td>
+                                            <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 border-b tracking-widest font-sans font-bold">
+                                                <tr>
+                                                    <th className="p-4 w-12 text-center font-sans font-bold"><input type="checkbox" className="rounded" onChange={e => setSelectedIds(e.target.checked ? new Set(filteredOrders.map(o=>o.orderId)) : new Set())} checked={selectedIds.size > 0 && selectedIds.size === filteredOrders.length} /></th>
+                                                    <th className="p-4 font-sans font-bold">單號</th><th className="p-4 text-center font-sans font-bold">狀態</th><th className="p-4 font-sans font-bold">客戶名稱</th><th className="p-4 font-sans font-bold text-center">預計出貨</th><th className="p-4 text-right pr-6 font-sans font-bold">操作</th>
                                                 </tr>
-                                              ))
-                                            )}
-                                        </tbody>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-medium font-sans font-bold">
+                                                {filteredOrders.length === 0 && !loading ? (
+                                                  <tr><td colSpan="6" className="p-10 text-center text-gray-400 italic font-normal font-sans font-bold">目前無訂單數據。</td></tr>
+                                                ) : (
+                                                  filteredOrders.map(o => (
+                                                    <tr key={o.orderId} className={`hover:bg-orange-50/30 transition-colors cursor-pointer ${selectedIds.has(o.orderId) ? 'bg-orange-50/50' : ''} font-sans`} onClick={()=>setSelectedOrder(o)}>
+                                                        <td className="p-4 text-center font-sans font-bold" onClick={e=>e.stopPropagation()}><input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 font-sans font-bold" checked={selectedIds.has(o.orderId)} onChange={()=>{ const n = new Set(selectedIds); n.has(o.orderId) ? n.delete(o.orderId) : n.add(o.orderId); setSelectedIds(n); }} /></td>
+                                                        <td className="p-4 font-bold font-mono text-gray-800 font-sans font-bold">{o.orderId}</td>
+                                                        <td className="p-4 text-center font-sans"><StatusBadge status={o.status} /></td>
+                                                        <td className="p-4 font-bold font-sans text-gray-800 font-sans">{o.company}</td>
+                                                        <td className="p-4 text-gray-500 font-mono text-xs font-sans text-center">{Utils.safeDate(o.deliveryDate) || '未排程'}</td>
+                                                        <td className="p-4 text-right pr-6 font-sans font-bold"><button className="text-[10px] font-black text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-orange-100 hover:text-orange-600 transition-all font-bold font-sans">Detail</button></td>
+                                                    </tr>
+                                                  ))
+                                                )}
+                                            </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -684,7 +682,7 @@
                         )}
                     </>
                 ) : (
-                    /* --- 庫存查詢畫面 (v4.0: 包含保留單功能) --- */
+                    /* --- 庫存查詢畫面 (v4.3: 包含保留單功能 + 規格/包裝/用量) --- */
                     <>
                         <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
                             <h2 className="text-xl font-black text-gray-800 tracking-tight font-sans">庫存快速查詢</h2>
@@ -730,7 +728,7 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
                                     {groupedInventory.map((item, idx) => {
                                         const available = item.totalQty - item.reservedQty;
-                                        const isLow = available < 0; // 超賣警示
+                                        const isLow = available < 0; 
                                         
                                         return (
                                             <div key={idx} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:border-teal-300 transition-all group ${isLow ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200'}`}>
@@ -738,7 +736,12 @@
                                                     <div>
                                                         <span className="inline-block px-2 py-1 rounded bg-teal-100 text-teal-800 text-[10px] font-black font-mono mb-2">{item.id}</span>
                                                         <h3 className="font-black text-gray-800 text-lg leading-tight">{item.name}</h3>
-                                                        <p className="text-xs text-gray-400 mt-1 font-bold">規格: {item.spec}</p>
+                                                        {/* 🌟 新增：規格、包裝、用量顯示區塊 */}
+                                                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">規格: {item.spec || '-'}</span>
+                                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">包裝: {item.packing || '-'}</span>
+                                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">用量: {item.usage || '-'}</span>
+                                                        </div>
                                                     </div>
                                                     <div className="text-right">
                                                         <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Stock</span>
@@ -816,4 +819,3 @@
     </script>
 </body>
 </html>
-
