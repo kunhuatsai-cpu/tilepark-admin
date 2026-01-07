@@ -106,8 +106,9 @@
           const [internalNote, setInternalNote] = useState(Utils.safeStr(order.internalNote));
           const [factoryEta, setFactoryEta] = useState(Utils.safeStr(order.factoryEta));
           const [deliveryDate, setDeliveryDate] = useState(Utils.safeDate(order.deliveryDate));
-          const [recipient, setRecipient] = useState(Utils.safeStr(order.recipient || order.contactName)); 
-          const [phone, setPhone] = useState(Utils.safeStr(order.phone));
+          // 🟢 修正：對應 J 欄 (siteContact) 和 K 欄 (sitePhone)
+          const [siteContact, setSiteContact] = useState(Utils.safeStr(order.siteContact)); 
+          const [sitePhone, setSitePhone] = useState(Utils.safeStr(order.sitePhone));
           const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
 
           const [isSavingDetails, setIsSavingDetails] = useState(false);
@@ -176,7 +177,8 @@
               setIsSavingDetails(true);
               try {
                 const itemsString = editableItems.map(i => `${i.name} x ${i.currentQty}${i.unit} ${i.note ? `(${i.note})` : ''}`).join('\n');
-                const success = await onUpdateDetails(order.orderId, { orderType, internalNote, factoryEta, deliveryDate, recipient, phone, address, items: itemsString });
+                // 🟢 修正：傳送 siteContact 和 sitePhone
+                const success = await onUpdateDetails(order.orderId, { orderType, internalNote, factoryEta, deliveryDate, siteContact, sitePhone, address, items: itemsString });
                 if (success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
               } finally { setIsSavingDetails(false); }
           };
@@ -253,12 +255,12 @@
                             </h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-1">收貨人 (Recipient)</label>
-                                    <input type="text" value={recipient} onChange={e=>setRecipient(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800"/>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">現場聯絡人 (On-site Contact)</label>
+                                    <input type="text" value={siteContact} onChange={e=>setSiteContact(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800"/>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-1">收貨人電話 (Phone)</label>
-                                    <input type="text" value={phone} onChange={e=>setPhone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800 font-mono"/>
+                                    <label className="block text-xs font-bold text-gray-400 mb-1">現場電話 (On-site Phone)</label>
+                                    <input type="text" value={sitePhone} onChange={e=>setSitePhone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-gray-800 font-mono"/>
                                 </div>
                             </div>
                             <div>
