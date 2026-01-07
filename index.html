@@ -34,7 +34,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
         
-        // 🛑 請確認此處網址是否為您最新的 Google Script 部署網址
+        // 🔴 Web App 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
         // --- 安全工具集 ---
@@ -49,6 +49,7 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
+            // 寬鬆比對：只保留英數字，轉小寫
             cleanFuzzy: (v) => Utils.safeStr(v).toLowerCase().replace(/[^a-z0-9]/g, '')
         };
 
@@ -420,7 +421,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.2: 加入包裝與用量欄位) ---
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.4: 忽略訂單規格括號內容，修正保留匹配) ---
           const groupedInventory = useMemo(() => {
               if (!invSearchText.trim() && !invSearchQty.trim()) return [];
 
@@ -442,7 +443,10 @@
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           if (match) {
-                              const pName = Utils.cleanFuzzy(match[1]); 
+                              // 🌟 修正點：移除括號內的規格說明 (如 "(30x30)") 再進行比對
+                              let rawName = match[1];
+                              rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
+                              const pName = Utils.cleanFuzzy(rawName); 
                               const qty = Utils.parseQty(match[2]);
                               
                               if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
