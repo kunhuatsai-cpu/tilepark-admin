@@ -393,7 +393,8 @@
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
-              const res = await fetch(`${API_URL}?t=${Date.now()}`, { redirect: 'follow' });
+              // 🌟 核心修正：加上 ?action=getData，確保後端回傳 JSON
+              const res = await fetch(`${API_URL}?action=getData&t=${Date.now()}`, { redirect: 'follow' });
               const result = await res.json();
               if (result.error) throw new Error(result.error);
               setOrders(result.orders || []);
