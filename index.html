@@ -49,10 +49,13 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // 🌟 強力清洗：全形轉半形 -> 轉小寫 -> 只留英數字 (解決 ＫＯＭＩ－１ 問題)
+            // 🌟 V8.0 超級清洗：
+            // 1. 全形轉半形 (NFKC)
+            // 2. 轉小寫
+            // 3. 移除所有非英數字 (連小數點、x、- 都拿掉，確保 4.5x19.5 變成 45x195 方便模糊比對)
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
-                    .normalize('NFKC') // 這是關鍵：將全形字元標準化為半形
+                    .normalize('NFKC') 
                     .toLowerCase()
                     .replace(/[^a-z0-9]/g, '');
             }
@@ -125,6 +128,8 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
+                    // 修正的數量解析：確保不抓到尺寸中的 x
+                    // 策略：尋找最後一個 'x' 或 ' ' 後面跟著數字
                     const matchX = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
                     const matchSp = s.match(/^(.*)\s+([0-9,\.]+)\s*(.*)$/);
                     
@@ -150,16 +155,21 @@
 
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
-              const targetFull = Utils.safeStr(orderItemName).toLowerCase();
+              
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
               
               const matches = inventory.filter(inv => {
                 const q = Utils.parseQty(inv.qty);
                 if (q <= 0) return false; 
-                const invID = Utils.safeStr(inv.id).toLowerCase();
+                
                 const cleanID = Utils.cleanFuzzy(inv.id);
-                // 寬鬆比對：如果訂單名稱包含 ID
-                return (invID && targetFull.includes(invID)) || (cleanID && targetCleaned.includes(cleanID));
+                const cleanName = Utils.cleanFuzzy(inv.name);
+                
+                // 寬鬆比對：包含即可
+                return (cleanID && targetCleaned.includes(cleanID)) || 
+                       (cleanName && targetCleaned.includes(cleanName)) ||
+                       (cleanID && cleanID.includes(targetCleaned)) ||
+                       (cleanName && cleanName.includes(targetCleaned));
               });
 
               const groups = matches.reduce((acc, curr) => {
@@ -427,17 +437,16 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v6.0: 全形轉半形 + 雙向比對 + 未匹配診斷) ---
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v8.0: 尺寸防誤判 + 符號無差別移除) ---
           const { groupedInventory, unmatchedReservations } = useMemo(() => {
               if (!invSearchText.trim() && !invSearchQty.trim()) return { groupedInventory: [], unmatchedReservations: [] };
 
-              const tStr = Utils.cleanFuzzy(invSearchText); // 使用新的強力清洗
+              const tStr = Utils.cleanFuzzy(invSearchText); 
               const minQty = parseFloat(invSearchQty);
               const hasMinQty = !isNaN(minQty);
 
-              // 1. 預先計算保留單
-              const reservations = {}; 
-
+              // 1. 蒐集所有保留單的細項 (Flatten)
+              const pendingItems = []; 
               orders.forEach(o => {
                   const isHold = Utils.safeStr(o.orderType).includes('保留');
                   const isShipped = o.status === '已排單出貨'; 
@@ -446,26 +455,40 @@
                       const rawItems = Utils.safeStr(o.items).split('\n').filter(l => l.trim() !== "");
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
+                          
+                          // 🟢 修正：貪婪匹配名稱，確保像 "4.5x19.5" 這樣的中間 x 不會被當成乘號截斷
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
+                          let rawName = s; // 預設整行為名稱 (若無數量)
+                          let qty = 0;
+
                           if (match) {
-                              let rawName = match[1];
-                              rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
-                              const pName = Utils.cleanFuzzy(rawName); 
-                              const qty = Utils.parseQty(match[2]);
-                              
-                              if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
-                              reservations[pName].total += qty;
-                              reservations[pName].details.push({ company: o.company, qty: qty, originalName: rawName, orderId: o.orderId });
+                              rawName = match[1];
+                              qty = Utils.parseQty(match[2]);
+                          } else {
+                              // 如果沒有匹配到數量格式，假設數量為 1，並把整行當名稱
+                              qty = 1; 
+                          }
+
+                          // 移除括號內容，避免規格干擾
+                          rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
+                          const cleanName = Utils.cleanFuzzy(rawName); // komi1 (自動去除 4.5x19.5 中的 x)
+                          
+                          if (qty > 0) {
+                              pendingItems.push({
+                                  company: o.company,
+                                  qty: qty,
+                                  originalName: rawName,
+                                  cleanName: cleanName,
+                                  orderId: o.orderId,
+                                  matched: false
+                              });
                           }
                       });
                   }
               });
 
-              // 追蹤哪些保留單 Key 已經被匹配到庫存
-              const matchedResKeys = new Set();
-
-              // 2. 聚合所有產品
+              // 2. 暴力比對：拿每一筆庫存 去掃描 每一筆保留單
               const allGroups = inventory.reduce((acc, curr) => {
                   const qty = Utils.parseQty(curr.qty);
                   if (qty <= 0) return acc;
@@ -473,43 +496,31 @@
                   const key = `${curr.id}_${curr.name}`;
                   
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     
-                      const cleanName = Utils.cleanFuzzy(curr.name); 
+                      const cleanId = Utils.cleanFuzzy(curr.id);     // komi1
+                      const cleanName = Utils.cleanFuzzy(curr.name); // komichikomi145195cm
                       
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      Object.keys(reservations).forEach(resKey => {
-                          // 🟢 雙向比對邏輯：
-                          // 1. 訂單包含庫存ID (Order: KOMI-1 30x30, Stock: KOMI-1)
-                          // 2. 庫存ID包含訂單 (Order: KOMI-1, Stock: KOMI-1 30x30)
-                          // 3. 嚴格全形/半形標準化後的比對
-                          const isMatch = (resKey === cleanId) || 
-                                          (resKey === cleanName) ||
-                                          (cleanId.length > 2 && resKey.includes(cleanId)) ||
-                                          (resKey.length > 2 && cleanId.includes(resKey));
+                      // ⭐️ 核心修正：暴力比對所有 pendingItems
+                      pendingItems.forEach(pItem => {
+                          const pClean = pItem.cleanName; // komi1
 
-                          if (isMatch) {
-                              matchedResKeys.add(resKey); // 標記已匹配
-                              const r = reservations[resKey];
-                              totalRes += r.total;
-                              detailsRes = [...detailsRes, ...r.details];
+                          // 邏輯：只要其中一方包含另一方
+                          // 比對 A 欄 (ID)
+                          const matchID = (pClean.length > 2 && cleanId.includes(pClean)) || (cleanId.length > 2 && pClean.includes(cleanId));
+                          // 比對 C 欄 (Name)
+                          const matchName = (pClean.length > 2 && cleanName.includes(pClean)) || (cleanName.length > 2 && pClean.includes(cleanName));
+
+                          // 如果訂單字串極短 (例如只有 "komi")，我們需要它完整匹配 ID，避免 "komi" 匹配到 "komi2"
+                          const strictMatch = (pClean === cleanId);
+
+                          if (strictMatch || matchID || matchName) {
+                              totalRes += pItem.qty;
+                              detailsRes.push(pItem);
+                              pItem.matched = true;
                           }
                       });
-
-                      const uniqueDetails = [];
-                      const uniqueSet = new Set();
-                      detailsRes.forEach(d => {
-                          const k = `${d.company}-${d.qty}-${d.originalName}`;
-                          if(!uniqueSet.has(k)){
-                              uniqueSet.add(k);
-                              uniqueDetails.push(d);
-                          }
-                      });
-                      
-                      if (uniqueDetails.length < detailsRes.length) {
-                          totalRes = uniqueDetails.reduce((sum, d) => sum + d.qty, 0);
-                      }
 
                       acc[key] = {
                           id: curr.id,
@@ -519,7 +530,7 @@
                           usage: curr.usage,
                           totalQty: 0,
                           reservedQty: totalRes, 
-                          reserveDetails: uniqueDetails, 
+                          reserveDetails: detailsRes, 
                           batches: []
                       };
                   }
@@ -529,17 +540,16 @@
               }, {});
 
               // 3. 找出未匹配的保留單 (診斷功能)
-              const unmatched = [];
-              if (invSearchText) { // 只在搜尋狀態下顯示，避免畫面太亂
-                 Object.keys(reservations).forEach(key => {
-                    if (!matchedResKeys.has(key)) {
-                       // 只有當這個未匹配的 key 包含搜尋關鍵字時才顯示 (或是搜尋關鍵字包含它)
-                       if (key.includes(tStr) || tStr.includes(key)) {
-                           unmatched.push({ key: key, ...reservations[key] });
-                       }
-                    }
-                 });
-              }
+              const unmatched = pendingItems.filter(p => !p.matched && (p.cleanName.includes(tStr) || tStr.includes(p.cleanName)));
+              
+              const unmatchedUI = unmatched.reduce((uAcc, uCurr) => {
+                  const uKey = uCurr.cleanName;
+                  if(!uAcc[uKey]) uAcc[uKey] = { total: 0, details: [] };
+                  uAcc[uKey].total += uCurr.qty;
+                  uAcc[uKey].details.push(uCurr);
+                  return uAcc;
+              }, {});
+              const unmatchedList = Object.keys(unmatchedUI).map(k => ({ key: k, ...unmatchedUI[k] }));
 
               // 4. 篩選與排序
               const results = Object.values(allGroups).filter(group => {
@@ -562,7 +572,7 @@
 
               return { 
                   groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty), 
-                  unmatchedReservations: unmatched 
+                  unmatchedReservations: unmatchedList 
               };
 
           }, [inventory, orders, invSearchText, invSearchQty]);
