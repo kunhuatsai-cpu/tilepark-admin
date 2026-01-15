@@ -49,8 +49,13 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // 寬鬆比對：只保留英數字，轉小寫
-            cleanFuzzy: (v) => Utils.safeStr(v).toLowerCase().replace(/[^a-z0-9]/g, '')
+            // 🌟 強力清洗：全形轉半形 -> 轉小寫 -> 只留英數字 (解決 ＫＯＭＩ－１ 問題)
+            cleanFuzzy: (v) => {
+                return Utils.safeStr(v)
+                    .normalize('NFKC') // 這是關鍵：將全形字元標準化為半形
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]/g, '');
+            }
         };
 
         // --- UI 元件 ---
@@ -73,7 +78,6 @@
         const UI = {
           Search: (p) => <IconWrap {...p} d={<><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>} />,
           Refresh: (p) => <IconWrap {...p} d={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />,
-          Package: (p) => <IconWrap {...p} d={<><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></>} />,
           Close: (p) => <IconWrap {...p} d={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />,
           Check: (p) => <IconWrap {...p} d={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />,
           Truck: (p) => <IconWrap {...p} d={<><rect x="1" y="3" width="15" height="13" rx="2" ry="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
@@ -86,7 +90,8 @@
           User: (p) => <IconWrap {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />,
           Box: (p) => <IconWrap {...p} d={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
           Filter: (p) => <IconWrap {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
-          Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />
+          Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
+          Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -422,11 +427,11 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v5.0: 支援包含比對，修復 KOMI-1 問題) ---
-          const groupedInventory = useMemo(() => {
-              if (!invSearchText.trim() && !invSearchQty.trim()) return [];
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v6.0: 全形轉半形 + 雙向比對 + 未匹配診斷) ---
+          const { groupedInventory, unmatchedReservations } = useMemo(() => {
+              if (!invSearchText.trim() && !invSearchQty.trim()) return { groupedInventory: [], unmatchedReservations: [] };
 
-              const tStr = invSearchText.toLowerCase().trim();
+              const tStr = Utils.cleanFuzzy(invSearchText); // 使用新的強力清洗
               const minQty = parseFloat(invSearchQty);
               const hasMinQty = !isNaN(minQty);
 
@@ -445,18 +450,20 @@
                           
                           if (match) {
                               let rawName = match[1];
-                              // 關鍵修正：先移除括號內的規格 (如 "(30x30)") 再進行比對
                               rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
-                              const pName = Utils.cleanFuzzy(rawName); // 轉小寫並只留英數字
+                              const pName = Utils.cleanFuzzy(rawName); 
                               const qty = Utils.parseQty(match[2]);
                               
                               if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
                               reservations[pName].total += qty;
-                              reservations[pName].details.push({ company: o.company, qty: qty, originalName: rawName });
+                              reservations[pName].details.push({ company: o.company, qty: qty, originalName: rawName, orderId: o.orderId });
                           }
                       });
                   }
               });
+
+              // 追蹤哪些保留單 Key 已經被匹配到庫存
+              const matchedResKeys = new Set();
 
               // 2. 聚合所有產品
               const allGroups = inventory.reduce((acc, curr) => {
@@ -466,29 +473,30 @@
                   const key = `${curr.id}_${curr.name}`;
                   
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     // 庫存貨號
-                      const cleanName = Utils.cleanFuzzy(curr.name); // 庫存品名
+                      const cleanId = Utils.cleanFuzzy(curr.id);     
+                      const cleanName = Utils.cleanFuzzy(curr.name); 
                       
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      // 🟢 寬鬆匹配邏輯：
                       Object.keys(reservations).forEach(resKey => {
-                          // resKey 是訂單品名(clean過)
-                          // cleanId 是庫存貨號
-                          // 如果訂單品名包含庫存貨號 (且貨號長度>2，防止"1"匹配所有)，就算命中
+                          // 🟢 雙向比對邏輯：
+                          // 1. 訂單包含庫存ID (Order: KOMI-1 30x30, Stock: KOMI-1)
+                          // 2. 庫存ID包含訂單 (Order: KOMI-1, Stock: KOMI-1 30x30)
+                          // 3. 嚴格全形/半形標準化後的比對
                           const isMatch = (resKey === cleanId) || 
                                           (resKey === cleanName) ||
-                                          (cleanId.length > 2 && resKey.includes(cleanId));
+                                          (cleanId.length > 2 && resKey.includes(cleanId)) ||
+                                          (resKey.length > 2 && cleanId.includes(resKey));
 
                           if (isMatch) {
+                              matchedResKeys.add(resKey); // 標記已匹配
                               const r = reservations[resKey];
                               totalRes += r.total;
                               detailsRes = [...detailsRes, ...r.details];
                           }
                       });
 
-                      // 去除重複的保留明細
                       const uniqueDetails = [];
                       const uniqueSet = new Set();
                       detailsRes.forEach(d => {
@@ -520,15 +528,28 @@
                   return acc;
               }, {});
 
-              // 3. 篩選與排序
+              // 3. 找出未匹配的保留單 (診斷功能)
+              const unmatched = [];
+              if (invSearchText) { // 只在搜尋狀態下顯示，避免畫面太亂
+                 Object.keys(reservations).forEach(key => {
+                    if (!matchedResKeys.has(key)) {
+                       // 只有當這個未匹配的 key 包含搜尋關鍵字時才顯示 (或是搜尋關鍵字包含它)
+                       if (key.includes(tStr) || tStr.includes(key)) {
+                           unmatched.push({ key: key, ...reservations[key] });
+                       }
+                    }
+                 });
+              }
+
+              // 4. 篩選與排序
               const results = Object.values(allGroups).filter(group => {
                   let matchText = true;
                   let matchQty = true;
 
                   if (tStr) {
-                      matchText = Utils.safeStr(group.id).toLowerCase().includes(tStr) ||
-                                  Utils.safeStr(group.name).toLowerCase().includes(tStr) ||
-                                  group.batches.some(b => Utils.safeStr(b.lot).toLowerCase().includes(tStr));
+                      matchText = Utils.cleanFuzzy(group.id).includes(tStr) ||
+                                  Utils.cleanFuzzy(group.name).includes(tStr) ||
+                                  group.batches.some(b => Utils.cleanFuzzy(b.lot).includes(tStr));
                   }
 
                   if (hasMinQty) {
@@ -539,7 +560,10 @@
                   return matchText && matchQty;
               });
 
-              return results.sort((a, b) => b.totalQty - a.totalQty);
+              return { 
+                  groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty), 
+                  unmatchedReservations: unmatched 
+              };
 
           }, [inventory, orders, invSearchText, invSearchQty]);
 
@@ -732,13 +756,37 @@
                         </header>
                         
                         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-32 font-sans bg-gray-50">
+                            {/* 🔴 新增：未匹配保留單診斷區塊 (只在有搜尋文字時顯示) */}
+                            {unmatchedReservations.length > 0 && invSearchText && (
+                                <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 animate-fade-in">
+                                    <h3 className="flex items-center gap-2 text-red-700 font-black text-sm mb-3">
+                                        <UI.Alert size={18}/> 系統偵測到以下保留單，但無法對應庫存 ID：
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {unmatchedReservations.map((item, idx) => (
+                                            <div key={idx} className="bg-white border border-red-100 p-3 rounded-lg shadow-sm flex justify-between items-center">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-red-400 font-bold uppercase">解析品名 (Raw)</span>
+                                                    <span className="font-mono font-black text-gray-800 text-sm">{item.details[0].originalName}</span>
+                                                    <span className="text-[10px] text-gray-400">訂單: {item.details[0].orderId} / {item.details[0].company}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-red-600 font-black text-lg">{item.total}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-red-400 mt-2 text-center">請檢查庫存表 A 欄是否包含此品名，或檢查品名是否有全形/半形差異。</p>
+                                </div>
+                            )}
+
                             {(!invSearchText.trim() && !invSearchQty.trim()) ? (
                                 <div className="text-center py-20 text-gray-400 animate-fade-in">
                                     <UI.Search size={48} className="mx-auto mb-4 opacity-20"/>
                                     <p className="font-bold">請輸入關鍵字或數量開始查詢</p>
                                     <p className="text-xs mt-1 opacity-60">支援：品名/貨號 + 自動計算保留單庫存</p>
                                 </div>
-                            ) : groupedInventory.length === 0 ? (
+                            ) : groupedInventory.length === 0 && unmatchedReservations.length === 0 ? (
                                 <div className="text-center py-20 text-gray-400">
                                     <UI.Box size={48} className="mx-auto mb-4 opacity-20"/>
                                     <p className="font-bold">找不到相關庫存資料</p>
