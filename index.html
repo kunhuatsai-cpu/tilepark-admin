@@ -49,10 +49,9 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // 🌟 V8.0 超級清洗：
-            // 1. 全形轉半形 (NFKC)
-            // 2. 轉小寫
-            // 3. 移除所有非英數字 (連小數點、x、- 都拿掉，確保 4.5x19.5 變成 45x195 方便模糊比對)
+            // 🌟 V9.0 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (保留英數字)
+            // KOMICHI KOMI-1 4.5x19.5cm -> komichikomi145195cm
+            // KOMI1 -> komi1
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -128,8 +127,6 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // 修正的數量解析：確保不抓到尺寸中的 x
-                    // 策略：尋找最後一個 'x' 或 ' ' 後面跟著數字
                     const matchX = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)\s*(.*)$/);
                     const matchSp = s.match(/^(.*)\s+([0-9,\.]+)\s*(.*)$/);
                     
@@ -165,7 +162,6 @@
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 寬鬆比對：包含即可
                 return (cleanID && targetCleaned.includes(cleanID)) || 
                        (cleanName && targetCleaned.includes(cleanName)) ||
                        (cleanID && cleanID.includes(targetCleaned)) ||
@@ -437,7 +433,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v8.0: 尺寸防誤判 + 符號無差別移除) ---
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v9.0: 全域掃描模式，專治 KOMI-1) ---
           const { groupedInventory, unmatchedReservations } = useMemo(() => {
               if (!invSearchText.trim() && !invSearchQty.trim()) return { groupedInventory: [], unmatchedReservations: [] };
 
@@ -456,30 +452,24 @@
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // 🟢 修正：貪婪匹配名稱，確保像 "4.5x19.5" 這樣的中間 x 不會被當成乘號截斷
+                          // 🟢 數量判斷邏輯
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
-                          let rawName = s; // 預設整行為名稱 (若無數量)
-                          let qty = 0;
-
+                          let qty = 1;
                           if (match) {
-                              rawName = match[1];
                               qty = Utils.parseQty(match[2]);
-                          } else {
-                              // 如果沒有匹配到數量格式，假設數量為 1，並把整行當名稱
-                              qty = 1; 
                           }
 
-                          // 移除括號內容，避免規格干擾
-                          rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
-                          const cleanName = Utils.cleanFuzzy(rawName); // komi1 (自動去除 4.5x19.5 中的 x)
+                          // ⭐️ 核心修正：不依賴拆解後的名稱，直接保留整句訂單原始字串
+                          // 例如：KOMICHI KOMI-1 4.5x19.5cm
+                          const cleanFullLine = Utils.cleanFuzzy(s); 
                           
                           if (qty > 0) {
                               pendingItems.push({
                                   company: o.company,
                                   qty: qty,
-                                  originalName: rawName,
-                                  cleanName: cleanName,
+                                  originalName: s, // 顯示用
+                                  cleanName: cleanFullLine, // 比對用 (komichikomi145195cm)
                                   orderId: o.orderId,
                                   matched: false
                               });
@@ -502,20 +492,21 @@
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      // ⭐️ 核心修正：暴力比對所有 pendingItems
+                      // ⭐️ 全域掃描 pendingItems
                       pendingItems.forEach(pItem => {
-                          const pClean = pItem.cleanName; // komi1
+                          const pClean = pItem.cleanName; // 訂單整句: komichikomi145195cm
 
-                          // 邏輯：只要其中一方包含另一方
-                          // 比對 A 欄 (ID)
-                          const matchID = (pClean.length > 2 && cleanId.includes(pClean)) || (cleanId.length > 2 && pClean.includes(cleanId));
-                          // 比對 C 欄 (Name)
-                          const matchName = (pClean.length > 2 && cleanName.includes(pClean)) || (cleanName.length > 2 && pClean.includes(cleanName));
+                          // 邏輯：
+                          // 只要訂單整句話裡面 包含 庫存ID (komi1)，就算命中！
+                          const matchID = (cleanId.length > 2 && pClean.includes(cleanId));
+                          
+                          // 或者 訂單整句話裡面 包含 庫存品名
+                          const matchName = (cleanName.length > 2 && pClean.includes(cleanName));
 
-                          // 如果訂單字串極短 (例如只有 "komi")，我們需要它完整匹配 ID，避免 "komi" 匹配到 "komi2"
-                          const strictMatch = (pClean === cleanId);
+                          // 或者 庫存ID 包含 訂單 (針對訂單只寫 "komi" 的極端情況)
+                          const reverseMatch = (pClean.length > 2 && cleanId.includes(pClean));
 
-                          if (strictMatch || matchID || matchName) {
+                          if (matchID || matchName || reverseMatch) {
                               totalRes += pItem.qty;
                               detailsRes.push(pItem);
                               pItem.matched = true;
@@ -543,7 +534,7 @@
               const unmatched = pendingItems.filter(p => !p.matched && (p.cleanName.includes(tStr) || tStr.includes(p.cleanName)));
               
               const unmatchedUI = unmatched.reduce((uAcc, uCurr) => {
-                  const uKey = uCurr.cleanName;
+                  const uKey = uCurr.originalName;
                   if(!uAcc[uKey]) uAcc[uKey] = { total: 0, details: [] };
                   uAcc[uKey].total += uCurr.qty;
                   uAcc[uKey].details.push(uCurr);
@@ -777,7 +768,7 @@
                                             <div key={idx} className="bg-white border border-red-100 p-3 rounded-lg shadow-sm flex justify-between items-center">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-red-400 font-bold uppercase">解析品名 (Raw)</span>
-                                                    <span className="font-mono font-black text-gray-800 text-sm">{item.details[0].originalName}</span>
+                                                    <span className="font-mono font-black text-gray-800 text-sm">{item.key}</span>
                                                     <span className="text-[10px] text-gray-400">訂單: {item.details[0].orderId} / {item.details[0].company}</span>
                                                 </div>
                                                 <div className="text-right">
