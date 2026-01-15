@@ -106,7 +106,6 @@
           const [internalNote, setInternalNote] = useState(Utils.safeStr(order.internalNote));
           const [factoryEta, setFactoryEta] = useState(Utils.safeStr(order.factoryEta));
           const [deliveryDate, setDeliveryDate] = useState(Utils.safeDate(order.deliveryDate));
-          // 🟢 修正：對應 J 欄 (siteContact) 和 K 欄 (sitePhone)
           const [siteContact, setSiteContact] = useState(Utils.safeStr(order.siteContact)); 
           const [sitePhone, setSitePhone] = useState(Utils.safeStr(order.sitePhone));
           const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
@@ -154,6 +153,7 @@
                 if (q <= 0) return false; 
                 const invID = Utils.safeStr(inv.id).toLowerCase();
                 const cleanID = Utils.cleanFuzzy(inv.id);
+                // 寬鬆比對：如果訂單名稱包含 ID
                 return (invID && targetFull.includes(invID)) || (cleanID && targetCleaned.includes(cleanID));
               });
 
@@ -177,7 +177,6 @@
               setIsSavingDetails(true);
               try {
                 const itemsString = editableItems.map(i => `${i.name} x ${i.currentQty}${i.unit} ${i.note ? `(${i.note})` : ''}`).join('\n');
-                // 🟢 修正：傳送 siteContact 和 sitePhone
                 const success = await onUpdateDetails(order.orderId, { orderType, internalNote, factoryEta, deliveryDate, siteContact, sitePhone, address, items: itemsString });
                 if (success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
               } finally { setIsSavingDetails(false); }
@@ -393,7 +392,6 @@
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
-              // 🌟 核心修正：加上 ?action=getData，確保後端回傳 JSON
               const res = await fetch(`${API_URL}?action=getData&t=${Date.now()}`, { redirect: 'follow' });
               const result = await res.json();
               if (result.error) throw new Error(result.error);
@@ -424,7 +422,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- 庫存搜尋與保留計算邏輯 (修正版 v4.4: 忽略訂單規格括號內容，修正保留匹配) ---
+          // --- 庫存搜尋與保留計算邏輯 (修正版 v5.0: 支援包含比對，修復 KOMI-1 問題) ---
           const groupedInventory = useMemo(() => {
               if (!invSearchText.trim() && !invSearchQty.trim()) return [];
 
@@ -446,15 +444,15 @@
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           if (match) {
-                              // 🌟 修正點：移除括號內的規格說明 (如 "(30x30)") 再進行比對
                               let rawName = match[1];
+                              // 關鍵修正：先移除括號內的規格 (如 "(30x30)") 再進行比對
                               rawName = rawName.replace(/\s*[\(\[（【].*?[\)\]）】]/g, ''); 
-                              const pName = Utils.cleanFuzzy(rawName); 
+                              const pName = Utils.cleanFuzzy(rawName); // 轉小寫並只留英數字
                               const qty = Utils.parseQty(match[2]);
                               
                               if (!reservations[pName]) reservations[pName] = { total: 0, details: [] };
                               reservations[pName].total += qty;
-                              reservations[pName].details.push({ company: o.company, qty: qty });
+                              reservations[pName].details.push({ company: o.company, qty: qty, originalName: rawName });
                           }
                       });
                   }
@@ -468,34 +466,52 @@
                   const key = `${curr.id}_${curr.name}`;
                   
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);
-                      const cleanName = Utils.cleanFuzzy(curr.name);
+                      const cleanId = Utils.cleanFuzzy(curr.id);     // 庫存貨號
+                      const cleanName = Utils.cleanFuzzy(curr.name); // 庫存品名
                       
-                      const resById = reservations[cleanId];
-                      const resByName = reservations[cleanName];
-
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      if (resById) {
-                          totalRes += resById.total;
-                          detailsRes = [...detailsRes, ...resById.details];
-                      }
+                      // 🟢 寬鬆匹配邏輯：
+                      Object.keys(reservations).forEach(resKey => {
+                          // resKey 是訂單品名(clean過)
+                          // cleanId 是庫存貨號
+                          // 如果訂單品名包含庫存貨號 (且貨號長度>2，防止"1"匹配所有)，就算命中
+                          const isMatch = (resKey === cleanId) || 
+                                          (resKey === cleanName) ||
+                                          (cleanId.length > 2 && resKey.includes(cleanId));
+
+                          if (isMatch) {
+                              const r = reservations[resKey];
+                              totalRes += r.total;
+                              detailsRes = [...detailsRes, ...r.details];
+                          }
+                      });
+
+                      // 去除重複的保留明細
+                      const uniqueDetails = [];
+                      const uniqueSet = new Set();
+                      detailsRes.forEach(d => {
+                          const k = `${d.company}-${d.qty}-${d.originalName}`;
+                          if(!uniqueSet.has(k)){
+                              uniqueSet.add(k);
+                              uniqueDetails.push(d);
+                          }
+                      });
                       
-                      if (resByName && cleanName !== cleanId) {
-                          totalRes += resByName.total;
-                          detailsRes = [...detailsRes, ...resByName.details];
+                      if (uniqueDetails.length < detailsRes.length) {
+                          totalRes = uniqueDetails.reduce((sum, d) => sum + d.qty, 0);
                       }
 
                       acc[key] = {
                           id: curr.id,
                           name: curr.name,
                           spec: curr.spec,
-                          packing: curr.packing, // 🌟 抓取包裝
-                          usage: curr.usage,     // 🌟 抓取用量
+                          packing: curr.packing,
+                          usage: curr.usage,
                           totalQty: 0,
                           reservedQty: totalRes, 
-                          reserveDetails: detailsRes, 
+                          reserveDetails: uniqueDetails, 
                           batches: []
                       };
                   }
@@ -590,7 +606,6 @@
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 border-b md:border-b-0 border-white/5 shrink-0 font-sans">
                 <div className="mb-10 font-black text-xl tracking-tighter">TILE PARK <span className="block text-[10px] text-orange-500 font-mono tracking-widest font-normal opacity-80 uppercase">Warehouse Portal</span></div>
                 <nav className="space-y-2">
-                    {/* 左側選單切換 */}
                     <button 
                         onClick={() => setCurrentView('orders')}
                         className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'orders' ? 'bg-[#c25e00] text-white shadow-lg shadow-orange-900/40' : 'text-gray-400 hover:bg-white/10'}`}
@@ -609,7 +624,6 @@
 
               <main className="flex-1 flex flex-col min-h-0 relative font-sans">
                 {currentView === 'orders' ? (
-                    /* --- 訂單管理畫面 --- */
                     <>
                         <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
                           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 font-bold">
@@ -689,7 +703,6 @@
                         )}
                     </>
                 ) : (
-                    /* --- 庫存查詢畫面 (v4.3: 包含保留單功能 + 規格/包裝/用量) --- */
                     <>
                         <header className="bg-white border-b p-5 flex flex-col gap-4 shadow-sm z-10 font-sans">
                             <h2 className="text-xl font-black text-gray-800 tracking-tight font-sans">庫存快速查詢</h2>
@@ -743,7 +756,6 @@
                                                     <div>
                                                         <span className="inline-block px-2 py-1 rounded bg-teal-100 text-teal-800 text-[10px] font-black font-mono mb-2">{item.id}</span>
                                                         <h3 className="font-black text-gray-800 text-lg leading-tight">{item.name}</h3>
-                                                        {/* 🌟 新增：規格、包裝、用量顯示區塊 */}
                                                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                                                             <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">規格: {item.spec || '-'}</span>
                                                             <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">包裝: {item.packing || '-'}</span>
@@ -756,7 +768,6 @@
                                                     </div>
                                                 </div>
                                                 
-                                                {/* --- 保留與可用庫存顯示 --- */}
                                                 <div className="px-5 py-3 bg-white border-b border-gray-50 flex justify-between items-center">
                                                     <div className="flex flex-col">
                                                         <span className="text-[10px] font-bold text-gray-400 uppercase">保留中 Reserved</span>
@@ -772,7 +783,6 @@
                                                     </div>
                                                 </div>
 
-                                                {/* --- 保留明細 (若有) --- */}
                                                 {item.reservedQty > 0 && (
                                                     <div className="bg-orange-50 px-5 py-2 border-b border-orange-100">
                                                         <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1 flex items-center gap-1">
