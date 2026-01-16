@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V14.9 Fixed</title>
+    <title>Tile Park Admin System - V15.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,9 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* V14.9: 確保手機版高度正確，防止塌陷 */
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Noto Sans TC', sans-serif; }
-        #root { height: 100%; }
+        /* V15.0: 強制設定根元素高度，解決手機版內容消失問題 */
+        html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Noto Sans TC', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -200,7 +199,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.9</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.0</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -499,6 +498,9 @@
               }, {});
 
               const results = Object.values(allGroups).filter(group => {
+                  // V15.0: 如果產品總庫存為 0，直接隱藏
+                  if (group.totalQty <= 0) return false;
+
                   if (!hasSearch) return false; 
                   let matchText = true;
                   let matchQty = true;
@@ -578,7 +580,7 @@
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="w-full md:w-64 bg-[#1a1a1a] text-white flex flex-col p-4 md:p-6 shrink-0 flex-none">
                 <div className="mb-2 md:mb-10 font-black text-xl flex justify-between items-center">
-                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.9</span></div>
+                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.0</span></div>
                     <div className="md:hidden text-[10px] text-gray-500">{lastUpdated}</div>
                 </div>
                 <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
