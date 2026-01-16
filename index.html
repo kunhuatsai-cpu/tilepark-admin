@@ -34,8 +34,10 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
         
+        // 🔴 Web App 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
 
+        // --- 安全工具集 ---
         const Utils = {
             safeStr: (v) => String(v || '').trim(),
             safeDate: (v) => {
@@ -90,7 +92,7 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- OrderDetailModal Component (Same as before) ---
+        // --- OrderDetailModal Component ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
@@ -104,13 +106,15 @@
           const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
           const [isSavingDetails, setIsSavingDetails] = useState(false);
           const [saveSuccess, setSaveSuccess] = useState(false);
+          
           const [editableItems, setEditableItems] = useState(() => {
               try {
                 const rawItems = Utils.safeStr(order.items).split('\n').filter(l => l.trim() !== "");
                 return rawItems.map(line => {
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
-                    const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)(.*)$/); // Simple grep for modal
+                    // V10: 針對 Modal 顯示的簡單解析
+                    const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)(.*)$/); 
                     if (match) return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3].trim(), note: '' };
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
                 });
@@ -205,7 +209,7 @@
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // V10: 貪婪抓取數量
+                          // V10: 貪婪抓取數量 (抓最後一個 x 或數字)
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           let qty = 1;
@@ -305,9 +309,44 @@
 
           }, [inventory, orders, invSearchText, invSearchQty]);
 
-          const sendCommand = async (p) => { try { await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ payload: JSON.stringify(p) }) }); return true; } catch (e) { return false; } };
-          const handleStatusUpdate = async (ids, status) => { /* Same as before, simplified for brevity */ const targetIds = ids || Array.from(selectedIds); const action = status === 'delete' ? 'delete' : 'updateStatus'; if (status === 'delete') { setOrders(prev => prev.filter(o => !targetIds.includes(o.orderId))); if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(null); } else { setOrders(prev => prev.map(o => targetIds.includes(o.orderId) ? { ...o, status } : o)); if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(p => p ? ({ ...p, status }) : null); } setSelectedIds(new Set()); const success = await sendCommand({ action, status, ids: targetIds }); if (!success) { fetchAllData(); alert("操作失敗"); } };
-          const handleUpdateDetails = async (id, details) => { const ok = await sendCommand({ action: 'updateDetails', orderId: id, ...details }); if (ok) { setOrders(prev => prev.map(o => o.orderId === id ? { ...o, ...details } : o)); return true; } return false; };
+          // --- 展開後的功能函數 (之前被壓縮了) ---
+          const sendCommand = async (p) => { 
+              try { 
+                  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ payload: JSON.stringify(p) }) }); 
+                  return true; 
+              } catch (e) { 
+                  return false; 
+              } 
+          };
+
+          const handleUpdateDetails = async (id, details) => {
+              const ok = await sendCommand({ action: 'updateDetails', orderId: id, ...details });
+              if (ok) {
+                  setOrders(prev => prev.map(o => o.orderId === id ? { ...o, ...details } : o));
+                  return true;
+              }
+              return false;
+          };
+
+          const handleStatusUpdate = async (ids, status) => {
+              const targetIds = ids || Array.from(selectedIds);
+              const action = status === 'delete' ? 'delete' : 'updateStatus';
+              
+              if (status === 'delete') {
+                  setOrders(prev => prev.filter(o => !targetIds.includes(o.orderId)));
+                  if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(null);
+              } else {
+                  setOrders(prev => prev.map(o => targetIds.includes(o.orderId) ? { ...o, status } : o));
+                  if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(p => p ? ({ ...p, status }) : null);
+              }
+              setSelectedIds(new Set());
+
+              const success = await sendCommand({ action, status, ids: targetIds });
+              if (!success) {
+                  fetchAllData();
+                  alert("操作失敗，請檢查網路連線");
+              }
+          };
 
           if (!isLoggedIn) return (<div className="min-h-screen bg-black flex items-center justify-center p-4"><form onSubmit={(e)=>{e.preventDefault();if(password==='8888')setIsLoggedIn(true)}} className="space-y-4 text-center"><h1 className="text-white text-3xl font-bold">TILE PARK</h1><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="p-3 rounded text-center" placeholder="PASSWORD"/><button className="block w-full bg-orange-600 text-white p-3 rounded">LOGIN</button></form></div>);
 
@@ -325,7 +364,7 @@
 
               <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {currentView === 'orders' && (
-                    /* 訂單管理介面 (保持原樣) */
+                    /* 訂單管理介面 */
                     <div className="flex-1 overflow-y-auto p-4">
                         <header className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
