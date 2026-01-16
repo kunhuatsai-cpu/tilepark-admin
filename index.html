@@ -49,12 +49,22 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V10 清洗邏輯：全形轉半形 -> 轉小寫 -> 移除所有符號 (保留英數字)
+            // V11 超級清洗：移除所有符號，只留英數，轉小寫
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
                     .toLowerCase()
                     .replace(/[^a-z0-9]/g, '');
+            },
+            // 🌟 V11 新增：批號格式化 (解決 4.00E+00 問題)
+            formatBatch: (v) => {
+                const s = Utils.safeStr(v);
+                // 如果包含 E+ 且是數字格式，嘗試轉回普通數字
+                if (s.toUpperCase().includes('E+')) {
+                    const num = parseFloat(s);
+                    return isNaN(num) ? s : String(num);
+                }
+                return s;
             }
         };
 
@@ -81,8 +91,7 @@
           Box: (p) => <IconWrap {...p} d={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
           Filter: (p) => <IconWrap {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
           Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
-          Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />,
-          Bug: (p) => <IconWrap {...p} d={<><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 13-3.25-1.62"/><path d="m5 13 3.25-1.62"/><path d="m19 19-3.5-3.5"/><path d="m5 19 3.5-3.5"/><path d="m19 7-3.5 3.5"/><path d="m5 7 3.5 3.5"/></>} />
+          Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -92,7 +101,6 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- OrderDetailModal Component ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
@@ -113,7 +121,7 @@
                 return rawItems.map(line => {
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
-                    // V10: 針對 Modal 顯示的簡單解析
+                    // Modal 內的簡單解析
                     const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)(.*)$/); 
                     if (match) return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3].trim(), note: '' };
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
@@ -194,7 +202,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V10.0 核心邏輯：全域掃描 + 診斷數據 ---
+          // --- V11.0 核心邏輯：全域掃描 + 診斷數據 ---
           const { groupedInventory, diagnosisData } = useMemo(() => {
               // 1. 蒐集所有 "應該被計算" 的保留單細項
               const pendingItems = []; 
@@ -203,19 +211,18 @@
                   const isHold = Utils.safeStr(o.orderType).includes('保留');
                   const isShipped = o.status === '已排單出貨'; 
                   
-                  // 只要是保留單且未出貨，就納入計算
                   if (isHold && !isShipped) {
                       const rawItems = Utils.safeStr(o.items).split('\n').filter(l => l.trim() !== "");
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // V10: 貪婪抓取數量 (抓最後一個 x 或數字)
+                          // 貪婪抓取數量，避免 4.5x19.5 被切斷
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           let qty = 1;
                           if (match) qty = Utils.parseQty(match[2]);
 
-                          // V10: 暴力清洗，保留原始字串的所有英數組合
+                          // 暴力清洗，保留原始字串的所有英數組合
                           const cleanFullLine = Utils.cleanFuzzy(s); 
                           
                           if (qty > 0) {
@@ -226,7 +233,7 @@
                                   cleanName: cleanFullLine, // komichikomi145195cm
                                   orderId: o.orderId,
                                   orderType: o.orderType,
-                                  matched: false // 預設未匹配
+                                  matched: false 
                               });
                           }
                       });
@@ -242,8 +249,6 @@
               // 3. 庫存比對 (暴力掃描)
               const allGroups = inventory.reduce((acc, curr) => {
                   const qty = Utils.parseQty(curr.qty);
-                  // 為了搜尋顯示，即使 qty=0 也要考慮保留量，所以這裡不提早 return
-                  
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
                       const cleanId = Utils.cleanFuzzy(curr.id);     // komi1
@@ -256,14 +261,14 @@
                       pendingItems.forEach(pItem => {
                           const pClean = pItem.cleanName; // komichikomi145195cm
 
-                          // V10 比對核心：只要雙方有包含關係 (且長度足夠避免誤判 "1")
+                          // V11 比對核心：只要雙方有包含關係 (且長度足夠避免誤判 "1")
                           const matchID = (cleanId.length > 1 && pClean.includes(cleanId)) || (pClean.length > 1 && cleanId.includes(pClean));
                           const matchName = (cleanName.length > 1 && pClean.includes(cleanName)) || (pClean.length > 1 && cleanName.includes(pClean));
 
                           if (matchID || matchName) {
                               totalRes += pItem.qty;
                               detailsRes.push(pItem);
-                              pItem.matched = true; // 標記為已匹配
+                              pItem.matched = true; 
                           }
                       });
 
@@ -280,13 +285,14 @@
                       };
                   }
                   acc[key].totalQty += qty;
-                  acc[key].batches.push({ lot: curr.lot, qty: qty });
+                  // 🌟 V11 修正：批號顯示
+                  acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
                   return acc;
               }, {});
 
-              // 4. 篩選結果 (針對庫存顯示)
+              // 4. 篩選結果
               const results = Object.values(allGroups).filter(group => {
-                  if (!hasSearch) return false; // 沒搜尋就不顯示
+                  if (!hasSearch) return false; 
                   
                   let matchText = true;
                   let matchQty = true;
@@ -304,12 +310,11 @@
 
               return { 
                   groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty), 
-                  diagnosisData: pendingItems // 傳回所有保留單項目供診斷
+                  diagnosisData: pendingItems 
               };
 
           }, [inventory, orders, invSearchText, invSearchQty]);
 
-          // --- 展開後的功能函數 (之前被壓縮了) ---
           const sendCommand = async (p) => { 
               try { 
                   await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ payload: JSON.stringify(p) }) }); 
@@ -353,11 +358,10 @@
           return (
             <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V10</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V11</span></div>
                 <nav className="space-y-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => setCurrentView('inventory')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
-                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
                 <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
               </aside>
@@ -386,11 +390,11 @@
                 )}
 
                 {currentView === 'inventory' && (
-                    /* 庫存查詢介面 (V10) */
+                    /* 庫存查詢介面 (恢復 V8 風格) */
                     <div className="flex-1 flex flex-col">
                         <header className="bg-white border-b p-4 shadow-sm z-10">
                             <div className="flex gap-4 max-w-3xl">
-                                <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
+                                <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號 (支援模糊比對)..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
                                 <div className="relative w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400"/><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg" value={invSearchQty} onChange={e=>setInvSearchQty(e.target.value)}/></div>
                             </div>
                         </header>
@@ -405,7 +409,7 @@
                                                 <div>
                                                     <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-1 rounded font-mono font-bold">{item.id}</span>
                                                     <h3 className="font-bold text-lg mt-1">{item.name}</h3>
-                                                    <div className="text-[10px] text-gray-500 mt-1 space-x-2"><span>規:{item.spec}</span><span>包:{item.packing}</span></div>
+                                                    <div className="text-[10px] text-gray-500 mt-1 space-x-2"><span>規:{item.spec}</span><span>包:{item.packing}</span><span>用:{item.usage}</span></div>
                                                 </div>
                                                 <div className="text-right"><span className="text-xs text-gray-400 font-bold block">TOTAL</span><span className="text-2xl font-black text-teal-600">{item.totalQty.toLocaleString()}</span></div>
                                             </div>
@@ -422,54 +426,14 @@
                                                 </div>
                                             )}
                                             <div className="p-3 bg-gray-50 space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                                                {item.batches.map((b, bi)=>(<div key={bi} className="flex justify-between text-xs text-gray-600 border-b border-gray-100 last:border-0 pb-1"><span>{b.lot||'No Batch'}</span><span className="font-mono">{b.qty}</span></div>))}
+                                                {item.batches.map((b, bi)=>(<div key={bi} className="flex justify-between text-xs text-gray-600 border-b border-gray-100 last:border-0 pb-1">
+                                                    <span className="font-mono font-bold">{b.lot||'No Batch'}</span>
+                                                    <span className="font-mono">{b.qty}</span>
+                                                </div>))}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {currentView === 'diagnosis' && (
-                    /* V10 新功能：系統診斷介面 */
-                    <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
-                        <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
-                        
-                        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-4">使用說明</h3>
-                            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                                <li>此頁面列出所有系統偵測到的<b>「保留且未出貨」</b>訂單項目。</li>
-                                <li>如果您的訂單<b>不在列表中</b>：請檢查 Google Sheet 的 <b>Type (分類)</b> 是否包含「保留」，且 Status (狀態) 不是「已排單出貨」。</li>
-                                <li><b>Matched (綠色)</b>：已成功連結到庫存。</li>
-                                <li><b>Unmatched (紅色)</b>：找不到對應庫存 ID。請檢查「清洗後代碼」是否包含在庫存編號中。</li>
-                            </ul>
-                        </div>
-
-                        <div className="space-y-2">
-                            {diagnosisData.length === 0 ? (
-                                <div className="text-center p-10 text-gray-400 font-bold">目前沒有偵測到任何保留單</div>
-                            ) : (
-                                diagnosisData.map((item, idx) => (
-                                    <div key={idx} className={`p-4 rounded-lg border flex flex-col md:flex-row justify-between gap-4 ${item.matched ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                        <div className="flex-1 space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded text-white ${item.matched ? 'bg-green-600' : 'bg-red-600'}`}>
-                                                    {item.matched ? 'MATCHED' : 'UNMATCHED'}
-                                                </span>
-                                                <span className="font-mono font-bold text-gray-700">#{item.orderId}</span>
-                                                <span className="text-xs text-gray-500">({item.company})</span>
-                                            </div>
-                                            <div className="font-bold text-gray-800">{item.originalName}</div>
-                                            <div className="font-mono text-xs text-gray-400 break-all">清洗後代碼: {item.cleanName}</div>
-                                        </div>
-                                        <div className="text-right md:w-32 flex flex-col justify-center">
-                                            <span className="text-xs text-gray-400 font-bold">數量 QTY</span>
-                                            <span className="text-2xl font-black text-gray-800">{item.qty}</span>
-                                        </div>
-                                    </div>
-                                ))
                             )}
                         </div>
                     </div>
