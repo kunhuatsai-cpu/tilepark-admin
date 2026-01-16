@@ -49,14 +49,14 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V11 超級清洗邏輯
+            // V13 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
                     .toLowerCase()
                     .replace(/[^a-z0-9]/g, '');
             },
-            // V11 批號格式化
+            // 批號格式化 (解決 4.00E+00)
             formatBatch: (v) => {
                 const s = Utils.safeStr(v);
                 if (s.toUpperCase().includes('E+')) {
@@ -89,7 +89,9 @@
           User: (p) => <IconWrap {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />,
           Box: (p) => <IconWrap {...p} d={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />,
           Filter: (p) => <IconWrap {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
-          Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />
+          Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
+          Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />,
+          Bug: (p) => <IconWrap {...p} d={<><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 13-3.25-1.62"/><path d="m5 13 3.25-1.62"/><path d="m19 19-3.5-3.5"/><path d="m5 19 3.5-3.5"/><path d="m19 7-3.5 3.5"/><path d="m5 7 3.5 3.5"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -99,7 +101,7 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- V12 完整訂單詳細 Modal (恢復 V8 風格與功能) ---
+        // --- V13 完整恢復的 OrderDetailModal ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           
@@ -124,7 +126,7 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // V12: 使用貪婪匹配，避免切斷 4.5x19.5
+                    // V13: 使用貪婪匹配，避免切斷 4.5x19.5
                     const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)(.*)$/);
                     
                     if (match) {
@@ -137,7 +139,7 @@
               }
           });
 
-          // V12: Modal 內部的庫存比對 (同步 V11 邏輯)
+          // Modal 內部的庫存比對
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
@@ -150,7 +152,6 @@
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 寬鬆比對：包含即可
                 return (cleanID.length > 1 && targetCleaned.includes(cleanID)) || 
                        (cleanName.length > 1 && targetCleaned.includes(cleanName)) ||
                        (cleanID.length > 1 && cleanID.includes(targetCleaned));
@@ -188,7 +189,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V12</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V13</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -416,8 +417,8 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V11.0 核心邏輯：全域掃描 + 診斷數據 ---
-          const { groupedInventory } = useMemo(() => {
+          // --- V13.0 核心邏輯：全域掃描 + 診斷數據 ---
+          const { groupedInventory, diagnosisData } = useMemo(() => {
               // 1. 蒐集所有 "應該被計算" 的保留單細項
               const pendingItems = []; 
               
@@ -430,21 +431,24 @@
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // 貪婪抓取數量，避免 4.5x19.5 被切斷
+                          // V13: 貪婪抓取數量
                           const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
                           
                           let qty = 1;
                           if (match) qty = Utils.parseQty(match[2]);
 
-                          // 暴力清洗，保留原始字串的所有英數組合
-                          const cleanFullLine = Utils.cleanFuzzy(s); 
+                          // V13: 雙軌清洗
+                          const cleanFullLine = Utils.cleanFuzzy(s); // 軌道一：全句清洗
+                          const tokens = s.split(/[\s,]+/); // 軌道二：單詞清洗
+                          const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
                           
                           if (qty > 0) {
                               pendingItems.push({
                                   company: o.company,
                                   qty: qty,
                                   originalName: s, 
-                                  cleanName: cleanFullLine, // komichikomi145195cm
+                                  cleanName: cleanFullLine, 
+                                  cleanTokens: cleanTokens, // 保存單詞
                                   orderId: o.orderId,
                                   orderType: o.orderType,
                                   matched: false 
@@ -476,11 +480,16 @@
                       pendingItems.forEach(pItem => {
                           const pClean = pItem.cleanName; // komichikomi145195cm
 
-                          // V11 比對核心：只要雙方有包含關係 (且長度足夠避免誤判 "1")
+                          // V13 比對核心：
+                          // 1. 全句包含 ID 或 Name (原 V11)
                           const matchID = (cleanId.length > 1 && pClean.includes(cleanId)) || (pClean.length > 1 && cleanId.includes(pClean));
                           const matchName = (cleanName.length > 1 && pClean.includes(cleanName)) || (pClean.length > 1 && cleanName.includes(pClean));
+                          
+                          // 2. 🌟 新增：單詞完全匹配 (解決 KOMI-1 無法被 komichikomi1 涵蓋的邊界情況)
+                          // 只要訂單中某個單詞 (如 komi1) 等於庫存ID (komi1)，就中！
+                          const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
 
-                          if (matchID || matchName) {
+                          if (matchID || matchName || tokenMatch) {
                               totalRes += pItem.qty;
                               detailsRes.push(pItem);
                               pItem.matched = true; 
@@ -500,7 +509,7 @@
                       };
                   }
                   acc[key].totalQty += qty;
-                  // V11 修正：批號顯示
+                  // V13 修正：批號顯示
                   acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
                   return acc;
               }, {});
@@ -524,7 +533,8 @@
               });
 
               return { 
-                  groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty)
+                  groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty), 
+                  diagnosisData: pendingItems 
               };
 
           }, [inventory, orders, invSearchText, invSearchQty]);
@@ -567,15 +577,36 @@
               }
           };
 
-          if (!isLoggedIn) return (<div className="min-h-screen bg-black flex items-center justify-center p-4"><form onSubmit={(e)=>{e.preventDefault();if(password==='8888')setIsLoggedIn(true)}} className="space-y-4 text-center"><h1 className="text-white text-3xl font-bold">TILE PARK</h1><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="p-3 rounded text-center" placeholder="PASSWORD"/><button className="block w-full bg-orange-600 text-white p-3 rounded">LOGIN</button></form></div>);
+          if (!isLoggedIn) {
+            return (
+              <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
+                <div className="w-full max-w-sm bg-white/5 p-10 rounded-[2rem] border border-white/10 shadow-2xl text-center font-sans font-bold">
+                  <h1 className="text-3xl font-black text-white tracking-[0.2em] mb-10 font-sans">TILE PARK</h1>
+                  <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
+                    <input type="password" placeholder="PASSWORD" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all font-mono" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
+                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">Login</button>
+                  </form>
+                </div>
+              </div>
+            );
+          }
+
+          const tabs = [
+              { id: 'all', label: '全部', count: orders.length },
+              { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
+              { id: 'hold', label: '保留單', count: orders.filter(o => Utils.safeStr(o.orderType).includes('保留')).length },
+              { id: 'confirmed', label: '已確認', count: orders.filter(o => o.status === '已確認庫存').length },
+              { id: 'shipped', label: '已出貨', count: orders.filter(o => o.status === '已排單出貨').length },
+          ];
 
           return (
             <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V12</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V13</span></div>
                 <nav className="space-y-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
+                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
                 <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
               </aside>
@@ -648,6 +679,52 @@
                                         </div>
                                     ))}
                                 </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {currentView === 'diagnosis' && (
+                    /* V13 新功能：系統診斷介面 (雙軌分析) */
+                    <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+                        <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
+                        
+                        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-4">使用說明</h3>
+                            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                                <li>此頁面列出所有系統偵測到的<b>「保留且未出貨」</b>訂單項目。</li>
+                                <li>如果您的訂單<b>不在列表中</b>：請檢查 Google Sheet 的 <b>Type (分類)</b> 是否包含「保留」，且 Status (狀態) 不是「已排單出貨」。</li>
+                                <li><b>MATCHED (綠色)</b>：成功連結。系統透過「全句」或「單詞」找到了對應的庫存 ID。</li>
+                                <li><b>UNMATCHED (紅色)</b>：找不到庫存。請檢查下方的「清洗後代碼」或「單詞」是否完全等於庫存表 A 欄的 ID。</li>
+                            </ul>
+                        </div>
+
+                        <div className="space-y-2">
+                            {diagnosisData.length === 0 ? (
+                                <div className="text-center p-10 text-gray-400 font-bold">目前沒有偵測到任何保留單</div>
+                            ) : (
+                                diagnosisData.map((item, idx) => (
+                                    <div key={idx} className={`p-4 rounded-lg border flex flex-col md:flex-row justify-between gap-4 ${item.matched ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                        <div className="flex-1 space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded text-white ${item.matched ? 'bg-green-600' : 'bg-red-600'}`}>
+                                                    {item.matched ? 'MATCHED' : 'UNMATCHED'}
+                                                </span>
+                                                <span className="font-mono font-bold text-gray-700">#{item.orderId}</span>
+                                                <span className="text-xs text-gray-500">({item.company})</span>
+                                            </div>
+                                            <div className="font-bold text-gray-800">{item.originalName}</div>
+                                            <div className="font-mono text-xs text-gray-400 break-all">全句清洗: {item.cleanName}</div>
+                                            <div className="flex gap-1 flex-wrap">
+                                                {item.cleanTokens.map(t => <span className="bg-gray-200 text-gray-600 text-[10px] px-1 rounded">{t}</span>)}
+                                            </div>
+                                        </div>
+                                        <div className="text-right md:w-32 flex flex-col justify-center">
+                                            <span className="text-xs text-gray-400 font-bold">數量 QTY</span>
+                                            <span className="text-2xl font-black text-gray-800">{item.qty}</span>
+                                        </div>
+                                    </div>
+                                ))
                             )}
                         </div>
                     </div>
