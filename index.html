@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.0</title>
+    <title>Tile Park Admin System - V15.1 Mobile Tabs</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,15 +14,20 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* V15.0: 強制設定根元素高度，解決手機版內容消失問題 */
+        /* 全局設定：防止手機版彈性滾動導致畫面跑版 */
         html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Noto Sans TC', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* 隱藏捲軸但保留功能 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        
+        /* 自定義漂亮捲軸 */
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -199,7 +204,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.0</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.1</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -498,7 +503,6 @@
               }, {});
 
               const results = Object.values(allGroups).filter(group => {
-                  // V15.0: 如果產品總庫存為 0，直接隱藏
                   if (group.totalQty <= 0) return false;
 
                   if (!hasSearch) return false; 
@@ -578,18 +582,27 @@
 
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
-              <aside className="w-full md:w-64 bg-[#1a1a1a] text-white flex flex-col p-4 md:p-6 shrink-0 flex-none">
-                <div className="mb-2 md:mb-10 font-black text-xl flex justify-between items-center">
-                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.0</span></div>
-                    <div className="md:hidden text-[10px] text-gray-500">{lastUpdated}</div>
-                </div>
-                <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
-                    <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
-                    <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
-                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
+              <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.1</span></div>
+                <nav className="flex flex-col gap-2">
+                    <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
+                    <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
+                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
-                <div className="mt-auto text-[10px] text-gray-500 text-center hidden md:block">{lastUpdated}</div>
+                <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
               </aside>
+
+              <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
+                  <div className="p-3 flex justify-between items-center">
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.1</span></span>
+                      <span className="text-[10px] text-gray-500">{lastUpdated}</span>
+                  </div>
+                  <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
+                      <button onClick={() => setCurrentView('orders')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='orders'?'bg-orange-600 text-white':'hover:bg-[#333]'}`}><UI.File size={16}/> 訂單</button>
+                      <button onClick={() => setCurrentView('inventory')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='inventory'?'bg-teal-600 text-white':'hover:bg-[#333]'}`}><UI.Box size={16}/> 庫存</button>
+                      <button onClick={() => setCurrentView('diagnosis')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='diagnosis'?'bg-red-600 text-white':'hover:bg-[#333]'}`}><UI.Bug size={16}/> 診斷</button>
+                  </div>
+              </div>
 
               <main className="flex-1 flex flex-col min-h-0 relative bg-gray-100">
                 {currentView === 'orders' && (
