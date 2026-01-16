@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.4 Precise ID</title>
+    <title>Tile Park Admin System - V15.5 Smart Match</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -151,67 +151,67 @@
               }
           });
 
-          // V15.4: 貨號精準鎖定 + A/C 欄位混合搜尋
+          // 🔴 V15.5 修正版匹配邏輯：精準鎖定 ID，排除數字雜訊
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
-              const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              // 切分 Token，這裡將是關鍵
-              const tokens = orderItemName.split(/[\s,]+/).filter(t => isNaN(parseFloat(t))); 
-              const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 0);
+              const cleanOrderStr = Utils.cleanFuzzy(orderItemName); 
               
-              // 🔴 步驟 1: 預先檢查訂單字串中，是否包含任何「完全吻合庫存ID」的單詞
-              // 這是為了解決 22113772 跑出一堆雜訊的問題
-              // 如果找到明確的 ID，我們就鎖定這個 ID，忽略其他模糊匹配
-              let exactIdMatch = null;
+              // 1. 拆解關鍵字，但直接過濾掉「純數字」或「尺寸格式」，防止 30x60 把所有 30 的都抓出來
+              const tokens = orderItemName.split(/[\s,]+/).filter(t => {
+                  const cleanT = Utils.cleanFuzzy(t);
+                  const isDimension = /^\d+[xX\*]\d+$/.test(t) || /^\d+$/.test(cleanT);
+                  return cleanT.length > 1 && !isDimension; // 排除純數字
+              });
+              const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t));
+
+              // 2. 優先尋找「明確 ID」 (Tier 1 Match)
+              // 這是解決雜訊的關鍵：如果字串裡包含具體的庫存 ID，直接鎖定它，忽略其他模糊比對
+              let matches = [];
+              let foundExactId = false;
+
+              // 先掃描是否有包含完整 ID 的
               for (let inv of inventory) {
-                  const cleanID = Utils.cleanFuzzy(inv.id);
-                  if (cleanID.length > 3 && cleanTokens.includes(cleanID)) {
-                      exactIdMatch = cleanID;
-                      break; // 找到一個就夠了，通常訂單一行只會有一個主要貨號
+                  const invIdClean = Utils.cleanFuzzy(inv.id);
+                  if (invIdClean.length >= 2 && cleanOrderStr.includes(invIdClean)) {
+                      matches.push(inv);
+                      foundExactId = true;
                   }
               }
 
-              const matches = inventory.filter(inv => {
-                // 1. 強制過濾 0 庫存
-                const qty = Utils.parseQty(inv.totalQty || inv.qty); 
-                if (qty <= 0) return false;
+              // 3. 如果沒有找到明確 ID，才使用過濾後的關鍵字進行模糊比對 (Tier 2 Match)
+              if (!foundExactId && cleanTokens.length > 0) {
+                  matches = inventory.filter(inv => {
+                      const qty = Utils.parseQty(inv.totalQty || inv.qty); 
+                      if (qty <= 0) return false;
 
-                const cleanID = Utils.cleanFuzzy(inv.id);
-                const cleanName = Utils.cleanFuzzy(inv.name);
-                const fullSearchString = cleanID + cleanName;
+                      const invIdClean = Utils.cleanFuzzy(inv.id);
+                      const invNameClean = Utils.cleanFuzzy(inv.name);
+                      const fullSearchString = invIdClean + invNameClean;
 
-                // 🔴 步驟 2: 如果步驟 1 找到了明確 ID，我們就只回傳那個 ID 的商品
-                if (exactIdMatch) {
-                    return cleanID === exactIdMatch;
-                }
+                      // 必須命中所有有效文字 Token (例如 "霧白" + "30x60" -> 只找 "霧白")
+                      // 這裡使用 some 稍微寬鬆一點，只要命中一個非數字的關鍵字就算，但因為前面排除數字了，所以不會有雜訊
+                      let hit = 0;
+                      cleanTokens.forEach(t => {
+                          if (fullSearchString.includes(t)) hit++;
+                      });
+                      
+                      // 如果有多個關鍵字，至少要中一半
+                      return hit > 0 && hit >= cleanTokens.length * 0.5;
+                  });
+              }
 
-                // 🔴 步驟 3: 如果沒找到明確 ID，才進行原本的模糊比對 (A+C 欄位)
-                if (cleanTokens.length > 0) {
-                    const matchCount = cleanTokens.reduce((acc, token) => {
-                        return acc + (fullSearchString.includes(token) ? 1 : 0);
-                    }, 0);
-                    
-                    // 這裡稍微放寬一點，只要命中任何一個非數字的關鍵字 (如 "霧白") 就列出來，但要靠 ID 過濾掉不相干的
-                    // 但因為前面已經有 exactIdMatch 把關了，這裡可以維持高準度
-                    if (matchCount > 0 && matchCount >= cleanTokens.length / 2) return true;
-                }
-
-                // 4. 保底邏輯：ID 互相比對 (解決 KOMI-1 沒有被切分成單獨 token 的情況)
-                if (cleanID.length > 2 && (targetCleaned.includes(cleanID) || cleanID.includes(targetCleaned))) return true;
-
-                return false;
-              });
-
+              // 4. 分組與加總 (保持原本的顯示邏輯)
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
-                const qty = Utils.parseQty(curr.qty);
+                const qty = Utils.parseQty(curr.totalQty || curr.qty);
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
                 acc[key].total += qty;
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
               }, {});
-              return Object.values(groups);
+
+              return Object.values(groups).sort((a, b) => b.total - a.total); // 數量多的排前面
           };
 
           const handleUpdateItemQty = (index, value) => {
@@ -389,7 +389,7 @@
                                                     <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
                                                     <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
                                                     <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
-                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【全域模糊比對】：系統已保留中文字元，並嘗試在貨號(Col A)與品名(Col C)中搜尋關鍵字。</p>
+                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【V15.5 智慧降噪】：已過濾純數字/尺寸雜訊，優先鎖定貨號匹配。</p>
                                                 </div>
                                             )}
                                     </div>
@@ -501,7 +501,7 @@
                   const qty = Utils.parseQty(curr.qty);
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     
+                      const cleanId = Utils.cleanFuzzy(curr.id);      
                       const cleanName = Utils.cleanFuzzy(curr.name); 
                       let totalRes = 0;
                       let detailsRes = [];
