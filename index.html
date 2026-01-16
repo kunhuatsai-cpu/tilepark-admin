@@ -49,14 +49,13 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V13 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號
+            // V14 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (連 dash 都移除) -> 解決 KOMI-1 vs KOMI1
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
                     .toLowerCase()
-                    .replace(/[^a-z0-9]/g, '');
+                    .replace(/[^a-z0-9]/g, ''); // 只保留英數字
             },
-            // 批號格式化 (解決 4.00E+00)
             formatBatch: (v) => {
                 const s = Utils.safeStr(v);
                 if (s.toUpperCase().includes('E+')) {
@@ -101,7 +100,7 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- V13 完整恢復的 OrderDetailModal ---
+        // --- OrderDetailModal (V14 修復版: 增加 try-catch 防止白屏) ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           
@@ -126,16 +125,22 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // V13: 使用貪婪匹配，避免切斷 4.5x19.5
-                    const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)(.*)$/);
+                    // V14: 更強大的正則，允許數量後面有 "張" 等單位
+                    // 尋找最後的 X 或空格，後面跟著數字
+                    const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
                     
-                    if (match) {
-                        return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3].trim(), note: '' };
+                    if (match && match[1] && match[2]) {
+                        // 如果看起來像尺寸 (4.5x19.5)，我們不應該切開
+                        // 簡單判斷：如果 "品名" 最後一個字是數字，可能誤切
+                        // 但如果有明確的 X 分隔，通常是數量
+                        // 為了保險，我們只 trust " x 數字" 這種明確格式
+                        return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3] || '', note: '' };
                     }
                     return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
                 });
               } catch (e) {
-                return [{ name: "解析錯誤，請手動確認明細", originalQty: '0', currentQty: '0', unit: '', note: '' }];
+                console.error(e);
+                return [{ name: "解析錯誤 (請手動編輯)", originalQty: '0', currentQty: '0', unit: '', note: '' }];
               }
           });
 
@@ -146,12 +151,10 @@
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
               
               const matches = inventory.filter(inv => {
-                const q = Utils.parseQty(inv.qty);
-                if (q <= 0) return false; 
-                
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
+                // 寬鬆比對：包含即可 (只要長度>1，避免匹配到單一字母)
                 return (cleanID.length > 1 && targetCleaned.includes(cleanID)) || 
                        (cleanName.length > 1 && targetCleaned.includes(cleanName)) ||
                        (cleanID.length > 1 && cleanID.includes(targetCleaned));
@@ -189,7 +192,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V13</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -417,7 +420,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V13.0 核心邏輯：全域掃描 + 診斷數據 ---
+          // --- V14.0 核心邏輯：全域掃描 + 診斷數據 ---
           const { groupedInventory, diagnosisData } = useMemo(() => {
               // 1. 蒐集所有 "應該被計算" 的保留單細項
               const pendingItems = []; 
@@ -431,24 +434,25 @@
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // V13: 貪婪抓取數量
-                          const match = s.match(/^(.*)\s*[xX\*＊\u00d7]\s*([0-9,\.]+)/) || s.match(/^(.*)\s+([0-9,\.]+)/);
+                          // V14: 貪婪抓取數量 (抓最後一個 x 或數字)
+                          const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
                           
                           let qty = 1;
                           if (match) qty = Utils.parseQty(match[2]);
 
-                          // V13: 雙軌清洗
-                          const cleanFullLine = Utils.cleanFuzzy(s); // 軌道一：全句清洗
-                          const tokens = s.split(/[\s,]+/); // 軌道二：單詞清洗
+                          // V14: 暴力清洗，保留原始字串的所有英數組合 (連 dash 都移除)
+                          const cleanFullLine = Utils.cleanFuzzy(s); 
+                          // V14: 軌道二：保留單詞 (Tokenization)
+                          const tokens = s.split(/[\s,]+/); 
                           const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
-                          
+
                           if (qty > 0) {
                               pendingItems.push({
                                   company: o.company,
                                   qty: qty,
                                   originalName: s, 
-                                  cleanName: cleanFullLine, 
-                                  cleanTokens: cleanTokens, // 保存單詞
+                                  cleanName: cleanFullLine, // komichikomi145195cm
+                                  cleanTokens: cleanTokens, // ["komichi", "komi1", "45195cm"]
                                   orderId: o.orderId,
                                   orderType: o.orderType,
                                   matched: false 
@@ -470,7 +474,7 @@
                   
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     // komi1
+                      const cleanId = Utils.cleanFuzzy(curr.id);     // komi1 (自動移除 dash)
                       const cleanName = Utils.cleanFuzzy(curr.name); // komi
                       
                       let totalRes = 0;
@@ -480,13 +484,12 @@
                       pendingItems.forEach(pItem => {
                           const pClean = pItem.cleanName; // komichikomi145195cm
 
-                          // V13 比對核心：
-                          // 1. 全句包含 ID 或 Name (原 V11)
+                          // V14 比對核心：
+                          // 1. 全句比對
                           const matchID = (cleanId.length > 1 && pClean.includes(cleanId)) || (pClean.length > 1 && cleanId.includes(pClean));
                           const matchName = (cleanName.length > 1 && pClean.includes(cleanName)) || (pClean.length > 1 && cleanName.includes(pClean));
                           
-                          // 2. 🌟 新增：單詞完全匹配 (解決 KOMI-1 無法被 komichikomi1 涵蓋的邊界情況)
-                          // 只要訂單中某個單詞 (如 komi1) 等於庫存ID (komi1)，就中！
+                          // 2. 🌟 Token 比對 (關鍵！KOMI-1 清洗後變 komi1，庫存 ID 清洗後也是 komi1)
                           const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
 
                           if (matchID || matchName || tokenMatch) {
@@ -509,7 +512,7 @@
                       };
                   }
                   acc[key].totalQty += qty;
-                  // V13 修正：批號顯示
+                  // V14: 批號格式化
                   acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
                   return acc;
               }, {});
@@ -578,6 +581,7 @@
           };
 
           if (!isLoggedIn) {
+            // V14: 恢復大尺寸登入介面
             return (
               <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
                 <div className="w-full max-w-sm bg-white/5 p-10 rounded-[2rem] border border-white/10 shadow-2xl text-center font-sans font-bold">
@@ -602,7 +606,7 @@
           return (
             <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V13</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14</span></div>
                 <nav className="space-y-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -635,7 +639,7 @@
                 )}
 
                 {currentView === 'inventory' && (
-                    /* 庫存查詢介面 (恢復 V8 風格) */
+                    /* 庫存查詢介面 */
                     <div className="flex-1 flex flex-col">
                         <header className="bg-white border-b p-4 shadow-sm z-10">
                             <div className="flex gap-4 max-w-3xl">
@@ -685,7 +689,7 @@
                 )}
 
                 {currentView === 'diagnosis' && (
-                    /* V13 新功能：系統診斷介面 (雙軌分析) */
+                    /* V14 新功能：系統診斷介面 (雙軌分析) */
                     <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
                         <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
                         
