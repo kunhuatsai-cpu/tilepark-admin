@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.2 Precise Match</title>
+    <title>Tile Park Admin System - V15.2 Precise</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -151,12 +151,12 @@
               }
           });
 
-          // V15.2: 修正匹配邏輯，更加嚴格
+          // V15.2: 修正匹配邏輯，過濾0庫存與不相關產品
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              // 切分 Token，但排除掉純數字 (尺寸)，因為尺寸太容易造成誤判
+              // 排除純數字 (尺寸)，專注於名稱關鍵字
               const tokens = orderItemName.split(/[\s,]+/).filter(t => isNaN(parseFloat(t))); 
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
               
@@ -164,30 +164,23 @@
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 1. 強制過濾: 如果庫存 <= 0，直接排除顯示 (解決您的截圖問題)
-                const qty = Utils.parseQty(inv.qty);
+                // 1. 強制過濾: 隱藏庫存 <= 0 的項目
+                const qty = Utils.parseQty(inv.totalQty); // 注意這裡用 totalQty 或 qty 視資料結構而定
                 if (qty <= 0) return false;
 
                 // 2. ID 完全命中 (最高權重)
                 if (cleanID === targetCleaned || targetCleaned.includes(cleanID)) return true;
 
-                // 3. 名稱匹配優化: 
-                //    不要只看是否「包含」，要檢查 Token 是否「大部分」命中
-                //    例如: "長條霧白" (komichimatte) vs "長條亮白" (komichiglossy)
-                //    原本是只要有 "長條" (komichi) 就中，現在要求更多
-                
+                // 3. 名稱 Token 命中率檢查
                 if (cleanTokens.length > 0) {
-                    // 如果訂單有特定的 Token (如 "霧白")，庫存品名必須包含它
-                    // 這裡做一個簡單的交集檢查
                     const matchCount = cleanTokens.reduce((acc, token) => {
                         return acc + (cleanName.includes(token) ? 1 : 0);
                     }, 0);
-                    
-                    // 只有當命中率超過 50% 或至少命中關鍵字時才算
+                    // 至少要命中一半以上的非數字關鍵字
                     if (matchCount > 0 && matchCount >= cleanTokens.length / 2) return true;
                 }
 
-                // 4. 保底邏輯: ID 包含
+                // 4. 保底: ID 包含
                 return cleanID.length > 3 && targetCleaned.includes(cleanID);
               });
 
