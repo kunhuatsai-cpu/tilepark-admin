@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.2 Precise</title>
+    <title>Tile Park Admin System - V15.3 Fixed</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -47,11 +47,12 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
+            // V15.3 關鍵修正：保留中文、英文、數字，只移除特殊符號
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
                     .toLowerCase()
-                    .replace(/[^a-z0-9]/g, ''); 
+                    .replace(/[^\w\u4e00-\u9fa5]/g, ''); // \w=英數, \u4e00-\u9fa5=中文範圍
             },
             formatBatch: (v) => {
                 const s = Utils.safeStr(v);
@@ -151,37 +152,40 @@
               }
           });
 
-          // V15.2: 修正匹配邏輯，過濾0庫存與不相關產品
+          // V15.3: 中文修復 + A/C 欄位混合搜尋
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              // 排除純數字 (尺寸)，專注於名稱關鍵字
               const tokens = orderItemName.split(/[\s,]+/).filter(t => isNaN(parseFloat(t))); 
-              const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
+              const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 0);
               
               const matches = inventory.filter(inv => {
+                // 1. 強制過濾 0 庫存
+                const qty = Utils.parseQty(inv.totalQty || inv.qty); 
+                if (qty <= 0) return false;
+
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 1. 強制過濾: 隱藏庫存 <= 0 的項目
-                const qty = Utils.parseQty(inv.totalQty); // 注意這裡用 totalQty 或 qty 視資料結構而定
-                if (qty <= 0) return false;
+                // 🔴 關鍵邏輯：將 ID 和 Name 結合成一個「超級搜尋字串」
+                // 這樣不管是搜貨號還是搜品名，都能在這個字串裡找到
+                const fullSearchString = cleanID + cleanName;
 
-                // 2. ID 完全命中 (最高權重)
-                if (cleanID === targetCleaned || targetCleaned.includes(cleanID)) return true;
-
-                // 3. 名稱 Token 命中率檢查
+                // 2. 檢查訂單中的每個 token 是否都存在於超級字串中 (高精準度)
                 if (cleanTokens.length > 0) {
                     const matchCount = cleanTokens.reduce((acc, token) => {
-                        return acc + (cleanName.includes(token) ? 1 : 0);
+                        return acc + (fullSearchString.includes(token) ? 1 : 0);
                     }, 0);
-                    // 至少要命中一半以上的非數字關鍵字
+                    
+                    // 如果有找到大部分關鍵字 (例如 "長條" 和 "霧白" 都找到了)，就顯示
                     if (matchCount > 0 && matchCount >= cleanTokens.length / 2) return true;
                 }
 
-                // 4. 保底: ID 包含
-                return cleanID.length > 3 && targetCleaned.includes(cleanID);
+                // 3. 保底邏輯：ID 互相比對 (解決 KOMI-1)
+                if (cleanID.length > 2 && (targetCleaned.includes(cleanID) || cleanID.includes(targetCleaned))) return true;
+
+                return false;
               });
 
               const groups = matches.reduce((acc, curr) => {
@@ -217,7 +221,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.2</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.3</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -370,7 +374,7 @@
                                                     <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
                                                     <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
                                                     <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
-                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【單詞鎖定】：系統已切分品名單詞，正在尋找是否包含 <span className="font-black">komi1</span></p>
+                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【全域模糊比對】：系統已保留中文字元，並嘗試在貨號(Col A)與品名(Col C)中搜尋關鍵字。</p>
                                                 </div>
                                             )}
                                     </div>
@@ -596,7 +600,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.2</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.3</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -607,7 +611,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.2</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.3</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
