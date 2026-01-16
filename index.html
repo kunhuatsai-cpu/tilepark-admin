@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V14.7 Mobile Fix</title>
+    <title>Tile Park Admin System - V14.8</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,8 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* V14.7 修復：鎖定 body 高度，防止手機瀏覽器彈性滾動造成的干擾 */
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; overflow: hidden; overscroll-behavior: none; }
+        /* V14.8: 使用 100dvh (動態高度) 解決手機網址列遮擋問題，同時保持滾動流暢 */
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -48,7 +48,7 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V14.5+ 強力清洗
+            // V14.5+ 強力清洗 (保留英數)
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -141,9 +141,7 @@
                 return rawItems.map(line => {
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
-                    
                     const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
-                    
                     if (match && match[1] && match[2]) {
                         return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: match[3] || '', note: '' };
                     }
@@ -158,29 +156,22 @@
           // Modal 庫存比對 (Token + Reverse)
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
-              
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
               const tokens = orderItemName.split(/[\s,]+/);
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
-              
               const matches = inventory.filter(inv => {
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
-                
                 const reverseIDMatch = cleanID.length > 1 && targetCleaned.includes(cleanID);
                 const reverseNameMatch = cleanName.length > 1 && targetCleaned.includes(cleanName);
                 const normalMatch = (cleanID.length > 1 && cleanID.includes(targetCleaned));
                 const tokenMatch = cleanTokens.some(t => t === cleanID);
-
                 return reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch;
               });
-
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
                 const qty = Utils.parseQty(curr.qty);
-                
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
-                
                 acc[key].total += qty;
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
@@ -210,12 +201,11 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.7</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.8</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
-
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
                   <ErrorBoundary onClose={onClose}>
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
@@ -241,7 +231,6 @@
                                 <input type="checkbox" className="hidden" checked={isShipped} onChange={() => onUpdateStatus([order.orderId], isShipped ? '已確認庫存' : '已排單出貨')} disabled={isProcessing} />
                             </label>
                       </div>
-
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                             <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
@@ -268,7 +257,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
                                 <UI.User size={18} className="text-blue-500"/> 客戶收貨資訊 (可編輯)
@@ -293,7 +281,6 @@
                             </div>
                         </div>
                       </div>
-
                       <section className="mb-8 font-sans">
                         <div className="flex justify-between items-center mb-4 px-1">
                             <h3 className="text-xs font-black uppercase tracking-widest text-orange-600 font-bold font-sans">訂單商品與庫存批號對照</h3>
@@ -302,7 +289,6 @@
                                  A06REPORT 已同步: {inventory.length} 筆
                             </div>
                         </div>
-                        
                         <div className="space-y-6">
                           {editableItems.map((item, idx) => {
                               const matches = getProductMatches(item.name);
@@ -377,7 +363,6 @@
                           })}
                         </div>
                       </section>
-
                       <div className="pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 font-sans font-bold">
                         <button onClick={() => confirm(`確定刪除訂單 #${order.orderId}？此操作不可撤回。`) && onDelete([order.orderId]) && onClose()} className="text-red-400 hover:text-red-600 text-sm font-bold flex items-center gap-1.5 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors font-sans"><UI.Trash size={16}/> 刪除單據</button>
                         <button onClick={handleSave} disabled={isSavingDetails} className={`w-full sm:w-auto px-10 py-3.5 rounded-xl text-sm font-black text-white transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95 ${saveSuccess ? 'bg-green-600 shadow-green-100' : 'bg-[#c25e00] hover:bg-[#a04d00] shadow-orange-100'} font-sans font-bold`}>
@@ -438,31 +423,24 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V14.6 Core Logic ---
           const { groupedInventory, diagnosisData } = useMemo(() => {
               const pendingItems = []; 
-              
               orders.forEach(o => {
                   const isHold = Utils.safeStr(o.orderType).includes('保留');
                   const isShipped = o.status === '已排單出貨'; 
-                  
                   if (isHold && !isShipped) {
                       const rawItems = Utils.safeStr(o.items).split('\n').filter(l => l.trim() !== "");
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
-                          
                           const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
-                          
                           let qty = 1;
                           if (match && match[1] && match[2]) {
                               qty = Utils.parseQty(match[2]);
                               s = match[1].trim(); 
                           }
-
                           const cleanFullLine = Utils.cleanFuzzy(s); 
                           const tokens = s.split(/[\s,]+/); 
                           const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
-
                           if (qty > 0) {
                               pendingItems.push({
                                   company: o.company,
@@ -479,38 +457,31 @@
                   }
               });
 
-              // 2. Search
               const searchTerms = invSearchText.toLowerCase().split(/\s+/).filter(t => t.length > 0);
               const minQty = parseFloat(invSearchQty);
               const hasMinQty = !isNaN(minQty);
               const hasSearch = searchTerms.length > 0 || hasMinQty;
 
-              // 3. Inventory Grouping
               const allGroups = inventory.reduce((acc, curr) => {
                   const qty = Utils.parseQty(curr.qty);
-                  
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
                       const cleanId = Utils.cleanFuzzy(curr.id);     
                       const cleanName = Utils.cleanFuzzy(curr.name); 
-                      
                       let totalRes = 0;
                       let detailsRes = [];
-
                       pendingItems.forEach(pItem => {
                           const pClean = pItem.cleanName; 
                           const reverseIDMatch = cleanId.length > 1 && pClean.includes(cleanId);
                           const reverseNameMatch = cleanName.length > 1 && pClean.includes(cleanName);
                           const normalMatch = (cleanId.length > 1 && cleanId.includes(pClean));
                           const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
-
                           if (reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch) {
                               totalRes += pItem.qty;
                               detailsRes.push(pItem);
                               pItem.matched = true; 
                           }
                       });
-
                       acc[key] = {
                           id: curr.id,
                           name: curr.name,
@@ -528,13 +499,10 @@
                   return acc;
               }, {});
 
-              // 4. Filtering
               const results = Object.values(allGroups).filter(group => {
                   if (!hasSearch) return false; 
-                  
                   let matchText = true;
                   let matchQty = true;
-
                   if (searchTerms.length > 0) {
                       matchText = searchTerms.every(term => {
                           const cId = Utils.cleanFuzzy(group.id);
@@ -545,7 +513,6 @@
                           return inId || inName || inBatch;
                       });
                   }
-                  
                   if (hasMinQty) {
                       matchQty = (group.totalQty - group.reservedQty) >= minQty;
                   }
@@ -556,7 +523,6 @@
                   groupedInventory: results.sort((a, b) => b.totalQty - a.totalQty), 
                   diagnosisData: pendingItems 
               };
-
           }, [inventory, orders, invSearchText, invSearchQty]);
 
           const sendCommand = async (p) => { 
@@ -580,7 +546,6 @@
           const handleStatusUpdate = async (ids, status) => {
               const targetIds = ids || Array.from(selectedIds);
               const action = status === 'delete' ? 'delete' : 'updateStatus';
-              
               if (status === 'delete') {
                   setOrders(prev => prev.filter(o => !targetIds.includes(o.orderId)));
                   if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(null);
@@ -589,7 +554,6 @@
                   if (selectedOrder && targetIds.includes(selectedOrder.orderId)) setSelectedOrder(p => p ? ({ ...p, status }) : null);
               }
               setSelectedIds(new Set());
-
               const success = await sendCommand({ action, status, ids: targetIds });
               if (!success) {
                   fetchAllData();
@@ -612,10 +576,10 @@
           }
 
           return (
-            <div className="fixed inset-0 bg-gray-100 flex flex-col md:flex-row font-sans">
-              <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-4 md:p-6 shrink-0 md:h-full">
+            <div className="h-[100dvh] w-full flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
+              <aside className="w-full md:w-64 bg-[#1a1a1a] text-white flex flex-col p-4 md:p-6 shrink-0 md:h-full">
                 <div className="mb-4 md:mb-10 font-black text-xl flex justify-between items-center">
-                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.7</span></div>
+                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.8</span></div>
                     <div className="md:hidden text-[10px] text-gray-500">{lastUpdated}</div>
                 </div>
                 <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
@@ -628,8 +592,8 @@
 
               <main className="flex-1 flex flex-col min-h-0 relative bg-gray-100">
                 {currentView === 'orders' && (
-                    <div className="flex-1 flex flex-col">
-                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm shrink-0">
+                    <div className="flex-1 flex flex-col h-full">
+                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm shrink-0 sticky top-0 z-20">
                             <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
                             <button onClick={fetchAllData} className="p-2 bg-white rounded border active:bg-gray-100"><UI.Refresh/></button>
                         </header>
@@ -651,8 +615,8 @@
                 )}
 
                 {currentView === 'inventory' && (
-                    <div className="flex-1 flex flex-col">
-                        <header className="bg-white border-b p-4 shadow-sm z-10 shrink-0">
+                    <div className="flex-1 flex flex-col h-full">
+                        <header className="bg-white border-b p-4 shadow-sm z-30 shrink-0 sticky top-0">
                             <div className="flex gap-4 max-w-3xl">
                                 <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
                                 <div className="relative w-24 md:w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400"/><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchQty} onChange={e=>setInvSearchQty(e.target.value)}/></div>
