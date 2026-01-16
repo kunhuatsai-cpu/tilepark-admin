@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V14.8</title>
+    <title>Tile Park Admin System - V14.9 Fixed</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,8 +14,9 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* V14.8: 使用 100dvh (動態高度) 解決手機網址列遮擋問題，同時保持滾動流暢 */
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        /* V14.9: 確保手機版高度正確，防止塌陷 */
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Noto Sans TC', sans-serif; }
+        #root { height: 100%; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -48,7 +49,6 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V14.5+ 強力清洗 (保留英數)
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -153,7 +153,6 @@
               }
           });
 
-          // Modal 庫存比對 (Token + Reverse)
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
@@ -201,7 +200,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.8</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.9</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -576,13 +575,13 @@
           }
 
           return (
-            <div className="h-[100dvh] w-full flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
-              <aside className="w-full md:w-64 bg-[#1a1a1a] text-white flex flex-col p-4 md:p-6 shrink-0 md:h-full">
-                <div className="mb-4 md:mb-10 font-black text-xl flex justify-between items-center">
-                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.8</span></div>
+            <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
+              <aside className="w-full md:w-64 bg-[#1a1a1a] text-white flex flex-col p-4 md:p-6 shrink-0 flex-none">
+                <div className="mb-2 md:mb-10 font-black text-xl flex justify-between items-center">
+                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.9</span></div>
                     <div className="md:hidden text-[10px] text-gray-500">{lastUpdated}</div>
                 </div>
-                <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+                <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
@@ -592,12 +591,12 @@
 
               <main className="flex-1 flex flex-col min-h-0 relative bg-gray-100">
                 {currentView === 'orders' && (
-                    <div className="flex-1 flex flex-col h-full">
-                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm shrink-0 sticky top-0 z-20">
+                    <div className="flex flex-col h-full">
+                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
                             <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
                             <button onClick={fetchAllData} className="p-2 bg-white rounded border active:bg-gray-100"><UI.Refresh/></button>
                         </header>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24">
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0">
                             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
                                 {['all','received','hold','confirmed','shipped'].map(id => (
                                     <button key={id} onClick={()=>{setActiveTab(id);setSelectedIds(new Set())}} className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${activeTab===id?'bg-orange-600 text-white':'bg-white text-gray-600'}`}>{id} ({id==='all'?orders.length:orders.filter(o=>(id==='received'?!o.status:(id==='hold'?Utils.safeStr(o.orderType).includes('保留'):(id==='confirmed'?o.status==='已確認庫存':o.status==='已排單出貨')))).length})</button>
@@ -615,14 +614,14 @@
                 )}
 
                 {currentView === 'inventory' && (
-                    <div className="flex-1 flex flex-col h-full">
-                        <header className="bg-white border-b p-4 shadow-sm z-30 shrink-0 sticky top-0">
+                    <div className="flex flex-col h-full">
+                        <header className="bg-white border-b p-4 shadow-sm flex-none z-10">
                             <div className="flex gap-4 max-w-3xl">
                                 <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
                                 <div className="relative w-24 md:w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400"/><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchQty} onChange={e=>setInvSearchQty(e.target.value)}/></div>
                             </div>
                         </header>
-                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar pb-24">
+                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar pb-24 min-h-0">
                             {groupedInventory.length === 0 ? (
                                 <div className="text-center py-20 text-gray-400"><UI.Box size={48} className="mx-auto mb-4 opacity-20"/><p>無符合資料</p></div>
                             ) : (
@@ -664,7 +663,7 @@
                 )}
 
                 {currentView === 'diagnosis' && (
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-100 pb-24">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-100 pb-24 min-h-0">
                         <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
                         <div className="space-y-2">
                             {diagnosisData.length === 0 ? (
