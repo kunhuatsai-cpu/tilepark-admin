@@ -49,7 +49,7 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V14.2 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (連 dash 都移除) -> 解決 KOMI-1 vs KOMI1
+            // V14.2 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (連 dash 都移除)
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -100,7 +100,6 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- ErrorBoundary 防止白屏 ---
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false }; }
             static getDerivedStateFromError(error) { return { hasError: true }; }
@@ -120,7 +119,6 @@
             }
         }
 
-        // --- OrderDetailModal (V14.2: 增強版單詞比對) ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           
@@ -145,7 +143,6 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // V14.2: 修正 Regex 邏輯，確保能抓到 x 210
                     const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
                     
                     if (match && match[1] && match[2]) {
@@ -159,12 +156,11 @@
               }
           });
 
-          // Modal 內部的庫存比對 (V14.2 升級版：加入單詞比對)
+          // Modal 內部的庫存比對 (V14.2: 增強版單詞比對 + V14.3: 過濾0庫存)
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              // V14.2: 建立單詞 Token (KOMI-1 -> komi1)
               const tokens = orderItemName.split(/[\s,]+/);
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
               
@@ -172,12 +168,10 @@
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 1. 全句包含比對
                 const fullMatch = (cleanID.length > 1 && targetCleaned.includes(cleanID)) || 
                                   (cleanName.length > 1 && targetCleaned.includes(cleanName)) ||
                                   (cleanID.length > 1 && cleanID.includes(targetCleaned));
                 
-                // 2. 🌟 單詞比對 (Token Match) - 專治 KOMI-1 這種案例
                 const tokenMatch = cleanTokens.some(t => t === cleanID);
 
                 return fullMatch || tokenMatch;
@@ -185,9 +179,15 @@
 
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
+                const qty = Utils.parseQty(curr.qty);
+                
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
-                acc[key].total += Utils.parseQty(curr.qty);
-                acc[key].lots.push(curr);
+                
+                acc[key].total += qty;
+                // V14.3: 只有當批號數量大於 0 才加入顯示列表
+                if (qty > 0) {
+                    acc[key].lots.push(curr);
+                }
                 return acc;
               }, {});
               return Object.values(groups);
@@ -215,7 +215,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.2</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.3</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -506,11 +506,8 @@
                       pendingItems.forEach(pItem => {
                           const pClean = pItem.cleanName; 
                           
-                          // 1. 全句比對
                           const matchID = (cleanId.length > 1 && pClean.includes(cleanId)) || (pClean.length > 1 && cleanId.includes(pClean));
                           const matchName = (cleanName.length > 1 && pClean.includes(cleanName)) || (pClean.length > 1 && cleanName.includes(pClean));
-                          
-                          // 2. 🌟 單詞比對 (Token Match)
                           const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
 
                           if (matchID || matchName || tokenMatch) {
@@ -533,7 +530,10 @@
                       };
                   }
                   acc[key].totalQty += qty;
-                  acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
+                  // V14.3: 只有當批號數量大於 0 才加入顯示列表
+                  if (qty > 0) {
+                      acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
+                  }
                   return acc;
               }, {});
 
@@ -625,7 +625,7 @@
           return (
             <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.2</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.3</span></div>
                 <nav className="space-y-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
