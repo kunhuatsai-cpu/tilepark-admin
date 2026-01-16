@@ -49,7 +49,7 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V14 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (連 dash 都移除) -> 解決 KOMI-1 vs KOMI1
+            // V14.2 強力清洗：全形轉半形 -> 轉小寫 -> 移除所有符號 (連 dash 都移除) -> 解決 KOMI-1 vs KOMI1
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -100,7 +100,7 @@
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
-        // --- 修正 V14: 加入缺失的 ErrorBoundary ---
+        // --- ErrorBoundary 防止白屏 ---
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false }; }
             static getDerivedStateFromError(error) { return { hasError: true }; }
@@ -120,7 +120,7 @@
             }
         }
 
-        // --- OrderDetailModal (V14 修復版) ---
+        // --- OrderDetailModal (V14.2: 增強版單詞比對) ---
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
           
@@ -145,7 +145,7 @@
                     let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                     s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
                     
-                    // V14: 更強大的正則
+                    // V14.2: 修正 Regex 邏輯，確保能抓到 x 210
                     const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
                     
                     if (match && match[1] && match[2]) {
@@ -159,19 +159,28 @@
               }
           });
 
-          // Modal 內部的庫存比對
+          // Modal 內部的庫存比對 (V14.2 升級版：加入單詞比對)
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
+              // V14.2: 建立單詞 Token (KOMI-1 -> komi1)
+              const tokens = orderItemName.split(/[\s,]+/);
+              const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
               
               const matches = inventory.filter(inv => {
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                return (cleanID.length > 1 && targetCleaned.includes(cleanID)) || 
-                       (cleanName.length > 1 && targetCleaned.includes(cleanName)) ||
-                       (cleanID.length > 1 && cleanID.includes(targetCleaned));
+                // 1. 全句包含比對
+                const fullMatch = (cleanID.length > 1 && targetCleaned.includes(cleanID)) || 
+                                  (cleanName.length > 1 && targetCleaned.includes(cleanName)) ||
+                                  (cleanID.length > 1 && cleanID.includes(targetCleaned));
+                
+                // 2. 🌟 單詞比對 (Token Match) - 專治 KOMI-1 這種案例
+                const tokenMatch = cleanTokens.some(t => t === cleanID);
+
+                return fullMatch || tokenMatch;
               });
 
               const groups = matches.reduce((acc, curr) => {
@@ -206,7 +215,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.2</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -364,7 +373,7 @@
                                                     <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
                                                     <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
                                                     <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
-                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">提示：系統會嘗試比對試算表 A 欄貨號。請檢查貨號是否包含在品名中。</p>
+                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">提示：系統已啟用「單詞比對」模式，請檢查單據內容與庫存代碼是否有部分單字完全一致。</p>
                                                 </div>
                                             )}
                                     </div>
@@ -434,9 +443,8 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V14.0 核心邏輯：全域掃描 + 診斷數據 ---
+          // --- V14.2 核心邏輯：全域掃描 + 診斷數據 (同步加入單詞比對) ---
           const { groupedInventory, diagnosisData } = useMemo(() => {
-              // 1. 蒐集所有 "應該被計算" 的保留單細項
               const pendingItems = []; 
               
               orders.forEach(o => {
@@ -448,18 +456,16 @@
                       rawItems.forEach(line => {
                           let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
                           
-                          // V14 修復: 確保比對字串不包含數量 (解決 KOMI-1 x 10 導致無法匹配問題)
+                          // V14.2: 修正 Regex，對齊 Modal 邏輯
                           const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
                           
                           let qty = 1;
-                          if (match) {
+                          if (match && match[1] && match[2]) {
                               qty = Utils.parseQty(match[2]);
-                              s = match[1].trim(); // 🔴 關鍵修正：將品名更新為不含數量的字串
+                              s = match[1].trim(); 
                           }
 
-                          // V14: 暴力清洗，保留原始字串的所有英數組合 (連 dash 都移除)
                           const cleanFullLine = Utils.cleanFuzzy(s); 
-                          // V14: 軌道二：保留單詞 (Tokenization)
                           const tokens = s.split(/[\s,]+/); 
                           const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
 
@@ -468,8 +474,8 @@
                                   company: o.company,
                                   qty: qty,
                                   originalName: s, 
-                                  cleanName: cleanFullLine, // komichikomi1
-                                  cleanTokens: cleanTokens, // ["komichi", "komi1"]
+                                  cleanName: cleanFullLine, 
+                                  cleanTokens: cleanTokens, 
                                   orderId: o.orderId,
                                   orderType: o.orderType,
                                   matched: false 
@@ -485,28 +491,26 @@
               const hasMinQty = !isNaN(minQty);
               const hasSearch = invSearchText.trim() !== "" || hasMinQty;
 
-              // 3. 庫存比對 (暴力掃描)
+              // 3. 庫存比對
               const allGroups = inventory.reduce((acc, curr) => {
                   const qty = Utils.parseQty(curr.qty);
                   
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     // komi1 (自動移除 dash)
-                      const cleanName = Utils.cleanFuzzy(curr.name); // komi
+                      const cleanId = Utils.cleanFuzzy(curr.id);     
+                      const cleanName = Utils.cleanFuzzy(curr.name); 
                       
                       let totalRes = 0;
                       let detailsRes = [];
 
-                      // 掃描所有 pendingItems
                       pendingItems.forEach(pItem => {
-                          const pClean = pItem.cleanName; // komichikomi1
-
-                          // V14 比對核心：
+                          const pClean = pItem.cleanName; 
+                          
                           // 1. 全句比對
                           const matchID = (cleanId.length > 1 && pClean.includes(cleanId)) || (pClean.length > 1 && cleanId.includes(pClean));
                           const matchName = (cleanName.length > 1 && pClean.includes(cleanName)) || (pClean.length > 1 && cleanName.includes(pClean));
                           
-                          // 2. 🌟 Token 比對 (關鍵！KOMI-1 清洗後變 komi1，庫存 ID 清洗後也是 komi1)
+                          // 2. 🌟 單詞比對 (Token Match)
                           const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
 
                           if (matchID || matchName || tokenMatch) {
@@ -529,7 +533,6 @@
                       };
                   }
                   acc[key].totalQty += qty;
-                  // V14: 批號格式化
                   acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
                   return acc;
               }, {});
@@ -622,7 +625,7 @@
           return (
             <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
               <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.2</span></div>
                 <nav className="space-y-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
