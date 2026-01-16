@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V14.6</title>
+    <title>Tile Park Admin System - V14.7 Mobile Fix</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,7 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        /* V14.7 修復：鎖定 body 高度，防止手機瀏覽器彈性滾動造成的干擾 */
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; overflow: hidden; overscroll-behavior: none; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -47,7 +48,7 @@
                 const num = parseFloat(s);
                 return isNaN(num) ? 0 : num;
             },
-            // V14.6: 強力清洗 (保留英數)
+            // V14.5+ 強力清洗
             cleanFuzzy: (v) => {
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
@@ -166,12 +167,9 @@
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 
-                // 1. 全句 (反向 + 正向)
                 const reverseIDMatch = cleanID.length > 1 && targetCleaned.includes(cleanID);
                 const reverseNameMatch = cleanName.length > 1 && targetCleaned.includes(cleanName);
                 const normalMatch = (cleanID.length > 1 && cleanID.includes(targetCleaned));
-                
-                // 2. Token
                 const tokenMatch = cleanTokens.some(t => t === cleanID);
 
                 return reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch;
@@ -209,16 +207,16 @@
 
           return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
-              <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+              <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.6</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V14.7</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
 
-                <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans">
+                <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
                   <ErrorBoundary onClose={onClose}>
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
@@ -440,7 +438,7 @@
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
-          // --- V14.6 核心邏輯：加入多關鍵字搜尋 ---
+          // --- V14.6 Core Logic ---
           const { groupedInventory, diagnosisData } = useMemo(() => {
               const pendingItems = []; 
               
@@ -481,14 +479,13 @@
                   }
               });
 
-              // 2. 準備搜尋條件 (V14.6: 多關鍵字支援)
-              // 搜尋 "YH 2" -> ["yh", "2"]
+              // 2. Search
               const searchTerms = invSearchText.toLowerCase().split(/\s+/).filter(t => t.length > 0);
               const minQty = parseFloat(invSearchQty);
               const hasMinQty = !isNaN(minQty);
               const hasSearch = searchTerms.length > 0 || hasMinQty;
 
-              // 3. 庫存比對
+              // 3. Inventory Grouping
               const allGroups = inventory.reduce((acc, curr) => {
                   const qty = Utils.parseQty(curr.qty);
                   
@@ -531,7 +528,7 @@
                   return acc;
               }, {});
 
-              // 4. 篩選結果 (V14.6: 多關鍵字 AND 邏輯)
+              // 4. Filtering
               const results = Object.values(allGroups).filter(group => {
                   if (!hasSearch) return false; 
                   
@@ -539,7 +536,6 @@
                   let matchQty = true;
 
                   if (searchTerms.length > 0) {
-                      // 檢查每一個關鍵字是否都存在於 ID、Name 或 Batch 中 (AND Logic)
                       matchText = searchTerms.every(term => {
                           const cId = Utils.cleanFuzzy(group.id);
                           const cName = Utils.cleanFuzzy(group.name);
@@ -603,7 +599,7 @@
 
           if (!isLoggedIn) {
             return (
-              <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
+              <div className="fixed inset-0 bg-[#111] flex items-center justify-center p-4 z-50">
                 <div className="w-full max-w-sm bg-white/5 p-10 rounded-[2rem] border border-white/10 shadow-2xl text-center font-sans font-bold">
                   <h1 className="text-3xl font-black text-white tracking-[0.2em] mb-10 font-sans">TILE PARK</h1>
                   <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
@@ -615,70 +611,67 @@
             );
           }
 
-          const tabs = [
-              { id: 'all', label: '全部', count: orders.length },
-              { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
-              { id: 'hold', label: '保留單', count: orders.filter(o => Utils.safeStr(o.orderType).includes('保留')).length },
-              { id: 'confirmed', label: '已確認', count: orders.filter(o => o.status === '已確認庫存').length },
-              { id: 'shipped', label: '已出貨', count: orders.filter(o => o.status === '已排單出貨').length },
-          ];
-
           return (
-            <div className="h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
-              <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-6 shrink-0">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.6</span></div>
-                <nav className="space-y-2">
-                    <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
-                    <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
-                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
+            <div className="fixed inset-0 bg-gray-100 flex flex-col md:flex-row font-sans">
+              <aside className="bg-[#1a1a1a] text-white md:w-64 flex flex-col p-4 md:p-6 shrink-0 md:h-full">
+                <div className="mb-4 md:mb-10 font-black text-xl flex justify-between items-center">
+                    <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V14.7</span></div>
+                    <div className="md:hidden text-[10px] text-gray-500">{lastUpdated}</div>
+                </div>
+                <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+                    <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
+                    <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
+                    <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm shrink-0 md:shrink ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
-                <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
+                <div className="mt-auto text-[10px] text-gray-500 text-center hidden md:block">{lastUpdated}</div>
               </aside>
 
-              <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+              <main className="flex-1 flex flex-col min-h-0 relative bg-gray-100">
                 {currentView === 'orders' && (
-                    <div className="flex-1 overflow-y-auto p-4">
-                        <header className="flex justify-between items-center mb-4">
+                    <div className="flex-1 flex flex-col">
+                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm shrink-0">
                             <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
-                            <button onClick={fetchAllData} className="p-2 bg-white rounded border"><UI.Refresh/></button>
+                            <button onClick={fetchAllData} className="p-2 bg-white rounded border active:bg-gray-100"><UI.Refresh/></button>
                         </header>
-                        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                            {['all','received','hold','confirmed','shipped'].map(id => (
-                                <button key={id} onClick={()=>{setActiveTab(id);setSelectedIds(new Set())}} className={`px-4 py-2 rounded-xl text-xs font-bold border ${activeTab===id?'bg-orange-600 text-white':'bg-white text-gray-600'}`}>{id} ({id==='all'?orders.length:orders.filter(o=>(id==='received'?!o.status:(id==='hold'?Utils.safeStr(o.orderType).includes('保留'):(id==='confirmed'?o.status==='已確認庫存':o.status==='已排單出貨')))).length})</button>
-                            ))}
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24">
+                            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
+                                {['all','received','hold','confirmed','shipped'].map(id => (
+                                    <button key={id} onClick={()=>{setActiveTab(id);setSelectedIds(new Set())}} className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${activeTab===id?'bg-orange-600 text-white':'bg-white text-gray-600'}`}>{id} ({id==='all'?orders.length:orders.filter(o=>(id==='received'?!o.status:(id==='hold'?Utils.safeStr(o.orderType).includes('保留'):(id==='confirmed'?o.status==='已確認庫存':o.status==='已排單出貨')))).length})</button>
+                                ))}
+                            </div>
+                            <div className="bg-white rounded-xl shadow overflow-hidden">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">Type</th><th className="p-3">Detail</th></tr></thead>
+                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td><td className="p-3 text-xs text-gray-500">{o.orderType}</td><td className="p-3"><button className="text-xs border px-2 py-1 rounded">View</button></td></tr>))}</tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div className="bg-white rounded-xl shadow overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">Type</th><th className="p-3">Detail</th></tr></thead>
-                                <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td><td className="p-3 text-xs text-gray-500">{o.orderType}</td><td className="p-3"><button className="text-xs border px-2 py-1 rounded">View</button></td></tr>))}</tbody>
-                            </table>
-                        </div>
-                        {selectedIds.size>0 && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-xl flex gap-4 border"><span className="font-bold">{selectedIds.size} selected</span><button onClick={()=>handleStatusUpdate(null,'已確認庫存')} className="text-teal-600 font-bold">確認庫存</button><button onClick={()=>handleStatusUpdate(null,'已排單出貨')} className="text-blue-600 font-bold">排單出貨</button></div>}
+                        {selectedIds.size>0 && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-xl flex gap-4 border z-20"><span className="font-bold">{selectedIds.size} selected</span><button onClick={()=>handleStatusUpdate(null,'已確認庫存')} className="text-teal-600 font-bold">確認庫存</button><button onClick={()=>handleStatusUpdate(null,'已排單出貨')} className="text-blue-600 font-bold">排單出貨</button></div>}
                     </div>
                 )}
 
                 {currentView === 'inventory' && (
                     <div className="flex-1 flex flex-col">
-                        <header className="bg-white border-b p-4 shadow-sm z-10">
+                        <header className="bg-white border-b p-4 shadow-sm z-10 shrink-0">
                             <div className="flex gap-4 max-w-3xl">
-                                <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號 (支援模糊比對)..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
-                                <div className="relative w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400"/><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg" value={invSearchQty} onChange={e=>setInvSearchQty(e.target.value)}/></div>
+                                <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400"/><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchText} onChange={e=>setInvSearchText(e.target.value)} autoFocus/></div>
+                                <div className="relative w-24 md:w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400"/><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchQty} onChange={e=>setInvSearchQty(e.target.value)}/></div>
                             </div>
                         </header>
-                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar pb-24">
                             {groupedInventory.length === 0 ? (
                                 <div className="text-center py-20 text-gray-400"><UI.Box size={48} className="mx-auto mb-4 opacity-20"/><p>無符合資料</p></div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                                     {groupedInventory.map((item, idx) => (
                                         <div key={idx} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.reservedQty>0?'border-orange-300 ring-1 ring-orange-100':''}`}>
                                             <div className="p-4 border-b bg-gray-50/50 flex justify-between items-start">
                                                 <div>
                                                     <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-1 rounded font-mono font-bold">{item.id}</span>
-                                                    <h3 className="font-bold text-lg mt-1">{item.name}</h3>
+                                                    <h3 className="font-bold text-lg mt-1 break-words">{item.name}</h3>
                                                     <div className="text-[10px] text-gray-500 mt-1 space-x-2"><span>規:{item.spec}</span><span>包:{item.packing}</span><span>用:{item.usage}</span></div>
                                                 </div>
-                                                <div className="text-right"><span className="text-xs text-gray-400 font-bold block">TOTAL</span><span className="text-2xl font-black text-teal-600">{item.totalQty.toLocaleString()}</span></div>
+                                                <div className="text-right shrink-0 ml-2"><span className="text-xs text-gray-400 font-bold block">TOTAL</span><span className="text-2xl font-black text-teal-600">{item.totalQty.toLocaleString()}</span></div>
                                             </div>
                                             <div className="p-3 bg-white flex justify-between items-center border-b">
                                                 <div className="flex flex-col"><span className="text-[10px] text-gray-400 font-bold">RESERVED</span><span className={`font-mono font-bold ${item.reservedQty>0?'text-orange-600':'text-gray-300'}`}>{item.reservedQty>0?`-${item.reservedQty}`:'0'}</span></div>
@@ -707,19 +700,8 @@
                 )}
 
                 {currentView === 'diagnosis' && (
-                    <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
-                        <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
-                        
-                        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-4">使用說明</h3>
-                            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                                <li>此頁面列出所有系統偵測到的<b>「保留且未出貨」</b>訂單項目。</li>
-                                <li>如果您的訂單<b>不在列表中</b>：請檢查 Google Sheet 的 <b>Type (分類)</b> 是否包含「保留」，且 Status (狀態) 不是「已排單出貨」。</li>
-                                <li><b>MATCHED (綠色)</b>：成功連結。系統透過「全句」或「單詞」找到了對應的庫存 ID。</li>
-                                <li><b>UNMATCHED (紅色)</b>：找不到庫存。請檢查下方的「清洗後代碼」或「單詞」是否完全等於庫存表 A 欄的 ID。</li>
-                            </ul>
-                        </div>
-
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-100 pb-24">
+                        <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
                         <div className="space-y-2">
                             {diagnosisData.length === 0 ? (
                                 <div className="text-center p-10 text-gray-400 font-bold">目前沒有偵測到任何保留單</div>
@@ -736,10 +718,6 @@
                                             </div>
                                             <div className="font-bold text-gray-800">{item.originalName}</div>
                                             <div className="font-mono text-xs text-gray-400 break-all">全句清洗: {item.cleanName}</div>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {/* 顯示系統切分出來的單詞，方便除錯 */}
-                                                {item.cleanTokens.map(t => <span className="bg-gray-200 text-gray-600 text-[10px] px-1 rounded">{t}</span>)}
-                                            </div>
                                         </div>
                                         <div className="text-right md:w-32 flex flex-col justify-center">
                                             <span className="text-xs text-gray-400 font-bold">數量 QTY</span>
