@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.1 Mobile Tabs</title>
+    <title>Tile Park Admin System - V15.2 Precise Match</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,20 +14,14 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* 全局設定：防止手機版彈性滾動導致畫面跑版 */
         html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #f3f4f6; font-family: 'Noto Sans TC', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        
-        /* 隱藏捲軸但保留功能 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* 自定義漂亮捲軸 */
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -157,20 +151,46 @@
               }
           });
 
+          // V15.2: 修正匹配邏輯，更加嚴格
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
+              
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              const tokens = orderItemName.split(/[\s,]+/);
+              // 切分 Token，但排除掉純數字 (尺寸)，因為尺寸太容易造成誤判
+              const tokens = orderItemName.split(/[\s,]+/).filter(t => isNaN(parseFloat(t))); 
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
+              
               const matches = inventory.filter(inv => {
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
-                const reverseIDMatch = cleanID.length > 1 && targetCleaned.includes(cleanID);
-                const reverseNameMatch = cleanName.length > 1 && targetCleaned.includes(cleanName);
-                const normalMatch = (cleanID.length > 1 && cleanID.includes(targetCleaned));
-                const tokenMatch = cleanTokens.some(t => t === cleanID);
-                return reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch;
+                
+                // 1. 強制過濾: 如果庫存 <= 0，直接排除顯示 (解決您的截圖問題)
+                const qty = Utils.parseQty(inv.qty);
+                if (qty <= 0) return false;
+
+                // 2. ID 完全命中 (最高權重)
+                if (cleanID === targetCleaned || targetCleaned.includes(cleanID)) return true;
+
+                // 3. 名稱匹配優化: 
+                //    不要只看是否「包含」，要檢查 Token 是否「大部分」命中
+                //    例如: "長條霧白" (komichimatte) vs "長條亮白" (komichiglossy)
+                //    原本是只要有 "長條" (komichi) 就中，現在要求更多
+                
+                if (cleanTokens.length > 0) {
+                    // 如果訂單有特定的 Token (如 "霧白")，庫存品名必須包含它
+                    // 這裡做一個簡單的交集檢查
+                    const matchCount = cleanTokens.reduce((acc, token) => {
+                        return acc + (cleanName.includes(token) ? 1 : 0);
+                    }, 0);
+                    
+                    // 只有當命中率超過 50% 或至少命中關鍵字時才算
+                    if (matchCount > 0 && matchCount >= cleanTokens.length / 2) return true;
+                }
+
+                // 4. 保底邏輯: ID 包含
+                return cleanID.length > 3 && targetCleaned.includes(cleanID);
               });
+
               const groups = matches.reduce((acc, curr) => {
                 const key = `${curr.id}-${curr.name}`;
                 const qty = Utils.parseQty(curr.qty);
@@ -204,7 +224,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.1</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.2</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -583,7 +603,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.1</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.2</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -594,7 +614,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.1</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.2</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
