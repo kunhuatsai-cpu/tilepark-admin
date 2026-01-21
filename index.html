@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.6 Interactive</title>
+    <title>Tile Park Admin System - V15.7 Batch Filter</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -25,7 +25,6 @@
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        /* V15.6: 新增旋轉動畫類別 */
         .animate-spin-fast { animation: spin 0.7s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
@@ -54,7 +53,7 @@
                 return Utils.safeStr(v)
                     .normalize('NFKC') 
                     .toLowerCase()
-                    .replace(/[^\w\u4e00-\u9fa5]/g, ''); // 保留中英數
+                    .replace(/[^\w\u4e00-\u9fa5]/g, ''); 
             },
             formatBatch: (v) => {
                 const s = Utils.safeStr(v);
@@ -154,7 +153,7 @@
               }
           });
 
-          // V15.5: 寬容版邏輯 + ID精準鎖定
+          // V15.7: 產品匹配保留寬容邏輯 (確保卡片顯示)，但後續會過濾 0 批號
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
@@ -162,7 +161,6 @@
               const tokens = orderItemName.split(/[\s,]+/).filter(t => t.length > 0); 
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 0);
               
-              // 1. 預先掃描 ID 鎖定
               let exactIdMatch = null;
               for (let inv of inventory) {
                   const cleanID = Utils.cleanFuzzy(inv.id);
@@ -173,17 +171,15 @@
               }
 
               const matches = inventory.filter(inv => {
-                // 不過濾 0 庫存，保持顯示
+                // 不在此處過濾 0 庫存，確保產品卡片能顯示 (NO MATCH 消失)
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 const fullSearchString = cleanID + cleanName;
 
-                // 2. ID 鎖定模式
                 if (exactIdMatch) {
                     return cleanID === exactIdMatch;
                 }
 
-                // 3. 混合搜尋 (反向 + Token)
                 if (cleanName.length > 2 && targetCleaned.includes(cleanName)) return true;
                 if (cleanID.length > 2 && targetCleaned.includes(cleanID)) return true;
 
@@ -198,7 +194,6 @@
                     }
                 }
 
-                // 4. 保底
                 if (cleanID.length > 2 && cleanID === targetCleaned) return true;
 
                 return false;
@@ -209,7 +204,11 @@
                 const qty = Utils.parseQty(curr.qty);
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
                 acc[key].total += qty;
-                acc[key].lots.push(curr);
+                
+                // V15.7: 關鍵修改 - 只有當批號數量 > 0 才推入 lots 陣列
+                if (qty > 0) {
+                    acc[key].lots.push(curr);
+                }
                 return acc;
               }, {});
               return Object.values(groups);
@@ -237,7 +236,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.6</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.7</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -371,7 +370,7 @@
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-sans">
-                                                                {group.lots.map((lot, lIdx) => (
+                                                                {group.lots.length > 0 ? group.lots.map((lot, lIdx) => (
                                                                     <div key={lIdx} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col hover:border-teal-400 transition-colors group font-sans">
                                                                                 <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 group-hover:text-teal-500 tracking-wider">Batch 批號</span>
                                                                                 <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{Utils.formatBatch(lot.lot) || "無標註"}</span>
@@ -380,7 +379,11 @@
                                                                                     <span className="font-black text-[15px] text-teal-600 font-mono leading-none">{lot.qty}</span>
                                                                                 </div>
                                                                     </div>
-                                                                ))}
+                                                                )) : (
+                                                                    <div className="col-span-full text-center p-3 text-xs text-gray-400 bg-gray-50 rounded-lg">
+                                                                        此產品目前無任何有效批號庫存 (>0)
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -536,7 +539,6 @@
               }, {});
 
               const results = Object.values(allGroups).filter(group => {
-                  // V15.5: 在「庫存列表」才過濾 0 庫存，診斷與比對時不過濾
                   if (group.totalQty <= 0) return false;
 
                   if (!hasSearch) return false; 
@@ -617,7 +619,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.6</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.7</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -628,7 +630,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.6</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.7</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
