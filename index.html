@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.5 Smart Match</title>
+    <title>Tile Park Admin System - V15.6 Interactive</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -25,6 +25,9 @@
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* V15.6: 新增旋轉動畫類別 */
+        .animate-spin-fast { animation: spin 0.7s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -151,36 +154,51 @@
               }
           });
 
-          // V15.5: 寬容版邏輯，同步庫存查詢
+          // V15.5: 寬容版邏輯 + ID精準鎖定
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
               const targetCleaned = Utils.cleanFuzzy(orderItemName);
-              // 切分 Token，不排除數字（因為有時候數字也是關鍵）
               const tokens = orderItemName.split(/[\s,]+/).filter(t => t.length > 0); 
               const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 0);
               
-              const matches = inventory.filter(inv => {
-                // 1. 取消「隱藏0庫存」：在訂單細節中，即使庫存是 0 也要顯示，使用者才知道匹配正確
-                // const qty = Utils.parseQty(inv.totalQty || inv.qty); 
-                // if (qty <= 0) return false; 
+              // 1. 預先掃描 ID 鎖定
+              let exactIdMatch = null;
+              for (let inv of inventory) {
+                  const cleanID = Utils.cleanFuzzy(inv.id);
+                  if (cleanID.length > 2 && cleanTokens.includes(cleanID)) {
+                      exactIdMatch = cleanID;
+                      break;
+                  }
+              }
 
+              const matches = inventory.filter(inv => {
+                // 不過濾 0 庫存，保持顯示
                 const cleanID = Utils.cleanFuzzy(inv.id);
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 const fullSearchString = cleanID + cleanName;
 
-                // 2. 反向品名比對 (關鍵修復)：檢查「訂單長字串」是否包含「庫存品名」
-                // KUSABI-1 ... contains KUSABI-1 -> True
+                // 2. ID 鎖定模式
+                if (exactIdMatch) {
+                    return cleanID === exactIdMatch;
+                }
+
+                // 3. 混合搜尋 (反向 + Token)
                 if (cleanName.length > 2 && targetCleaned.includes(cleanName)) return true;
                 if (cleanID.length > 2 && targetCleaned.includes(cleanID)) return true;
 
-                // 3. Token 寬容比對：只要第一個單詞 (通常是型號) 命中，就回傳
                 if (cleanTokens.length > 0) {
-                    const firstToken = cleanTokens[0];
-                    if (firstToken.length > 2 && fullSearchString.includes(firstToken)) return true;
+                    const matchCount = cleanTokens.reduce((acc, token) => {
+                        return acc + (fullSearchString.includes(token) ? 1 : 0);
+                    }, 0);
+                    
+                    if (matchCount > 0) {
+                         if (cleanTokens.length <= 2) return true;
+                         if (matchCount >= cleanTokens.length / 2) return true;
+                    }
                 }
 
-                // 4. 原本的包含比對 (保底)
+                // 4. 保底
                 if (cleanID.length > 2 && cleanID === targetCleaned) return true;
 
                 return false;
@@ -191,7 +209,6 @@
                 const qty = Utils.parseQty(curr.qty);
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
                 acc[key].total += qty;
-                // V15.5: 這裡不隱藏 0 批號，完整顯示
                 acc[key].lots.push(curr);
                 return acc;
               }, {});
@@ -220,7 +237,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.5</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.6</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -373,7 +390,7 @@
                                                     <UI.Search size={44} className="mx-auto text-gray-300 mb-3"/>
                                                     <p className="text-sm text-gray-400 font-black uppercase tracking-widest font-sans">No Match in A06REPORT</p>
                                                     <p className="text-[11px] text-gray-400 mt-2 font-sans px-4">無法在數據分頁中自動匹配到： <span className="font-bold font-mono text-gray-600">"{item.name}"</span></p>
-                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【寬容比對模式】：系統嘗試比對品名開頭與部分關鍵字，並顯示所有庫存狀態（含0）。</p>
+                                                    <p className="text-[9px] text-gray-300 mt-2 italic px-8 font-sans">已啟用【全域模糊比對】：系統已保留中文字元，並嘗試在貨號(Col A)與品名(Col C)中搜尋關鍵字。</p>
                                                 </div>
                                             )}
                                     </div>
@@ -600,7 +617,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.5</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.6</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -611,7 +628,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.5</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.6</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
@@ -626,7 +643,7 @@
                     <div className="flex flex-col h-full">
                         <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
                             <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
-                            <button onClick={fetchAllData} className="p-2 bg-white rounded border active:bg-gray-100"><UI.Refresh/></button>
+                            <button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''}/></button>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0">
                             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
@@ -697,6 +714,7 @@
                 {currentView === 'diagnosis' && (
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-100 pb-24 min-h-0">
                         <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500"/> 系統保留單診斷器</h2>
+                        <div className="flex justify-end mb-4"><button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border bg-white shadow-sm flex items-center gap-2 font-bold text-sm ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''}/> 重新整理數據</button></div>
                         <div className="space-y-2">
                             {diagnosisData.length === 0 ? (
                                 <div className="text-center p-10 text-gray-400 font-bold">目前沒有偵測到任何保留單</div>
