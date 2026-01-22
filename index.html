@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.8 UI Fix</title>
+    <title>Tile Park Admin System - V15.9 Full Chinese</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -153,7 +153,6 @@
               }
           });
 
-          // V15.7 Logic
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
@@ -233,7 +232,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.8</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.9</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -606,14 +605,14 @@
                   <h1 className="text-3xl font-black text-white tracking-[0.2em] mb-10 font-sans">TILE PARK</h1>
                   <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
                     <input type="password" placeholder="PASSWORD" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all font-mono" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
-                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">Login</button>
+                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">登入</button>
                   </form>
                 </div>
               </div>
             );
           }
 
-          // V15.8 UI Logic Fix: Use Chinese labels for tabs
+          // V15.9 UI Logic Fix: Table Headers & Tabs in Chinese
           const tabs = [
               { id: 'all', label: '全部', count: orders.length },
               { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
@@ -625,7 +624,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.8</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.9</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -636,7 +635,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.8</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.9</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
@@ -663,8 +662,8 @@
                             </div>
                             <div className="bg-white rounded-xl shadow overflow-hidden">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">Type</th><th className="p-3">Detail</th></tr></thead>
-                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td><td className="p-3 text-xs text-gray-500">{o.orderType}</td><td className="p-3"><button className="text-xs border px-2 py-1 rounded">View</button></td></tr>))}</tbody>
+                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">類型</th><th className="p-3">明細</th></tr></thead>
+                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td><td className="p-3 text-xs text-gray-500">{o.orderType}</td><td className="p-3"><button className="text-xs border px-2 py-1 rounded">查看</button></td></tr>))}</tbody>
                                 </table>
                             </div>
                         </div>
