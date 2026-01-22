@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.10 Auto Refresh</title>
+    <title>Tile Park Admin System - V15.11 Urgent Alert</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -32,7 +32,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+        const { useState, useEffect, useCallback, useMemo } = React;
         
         // 🔴 Web App 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
@@ -154,6 +154,7 @@
               }
           });
 
+          // V15.7 Logic
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
@@ -233,7 +234,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.10</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.11</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -431,7 +432,6 @@
           const [invSearchText, setInvSearchText] = useState("");
           const [invSearchQty, setInvSearchQty] = useState("");
 
-          // V15.10 Auto Refresh Logic
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
@@ -445,16 +445,7 @@
             finally { setLoading(false); }
           }, []);
 
-          useEffect(() => { 
-              if (isLoggedIn) {
-                  fetchAllData();
-                  // V15.10: Set interval for 30 seconds
-                  const interval = setInterval(() => {
-                      fetchAllData();
-                  }, 30000); 
-                  return () => clearInterval(interval);
-              }
-          }, [isLoggedIn, fetchAllData]);
+          useEffect(() => { if (isLoggedIn) fetchAllData(); }, [isLoggedIn, fetchAllData]);
 
           useEffect(() => {
             let res = orders;
@@ -616,14 +607,32 @@
                   <h1 className="text-3xl font-black text-white tracking-[0.2em] mb-10 font-sans">TILE PARK</h1>
                   <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
                     <input type="password" placeholder="PASSWORD" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all font-mono" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
-                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">登入</button>
+                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">Login</button>
                   </form>
                 </div>
               </div>
             );
           }
 
-          // V15.9 UI Logic Fix: Table Headers & Tabs in Chinese
+          // V15.11 Logic: Check urgent hold orders
+          const isUrgent = (order) => {
+              // 1. Must be "Hold"
+              if (!Utils.safeStr(order.orderType).includes('保留')) return false;
+              // 2. Must have a delivery date
+              if (!order.deliveryDate) return false;
+              
+              const delivery = new Date(order.deliveryDate);
+              const today = new Date();
+              today.setHours(0,0,0,0); 
+              
+              const limit = new Date();
+              limit.setDate(today.getDate() + 30); // 30 days window
+
+              if (isNaN(delivery.getTime())) return false;
+
+              return delivery <= limit;
+          };
+
           const tabs = [
               { id: 'all', label: '全部', count: orders.length },
               { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
@@ -635,21 +644,18 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.10</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.11</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
-                <div className="mt-auto text-[10px] text-gray-500 text-center flex flex-col gap-1">
-                    <span>{lastUpdated}</span>
-                    <span className="text-[9px] text-gray-600 flex items-center justify-center gap-1"><UI.Clock size={10}/> 30秒自動更新</span>
-                </div>
+                <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
               </aside>
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.10</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.11</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
@@ -677,7 +683,16 @@
                             <div className="bg-white rounded-xl shadow overflow-hidden">
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">類型</th><th className="p-3">明細</th></tr></thead>
-                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td><td className="p-3 text-xs text-gray-500">{o.orderType}</td><td className="p-3"><button className="text-xs border px-2 py-1 rounded">查看</button></td></tr>))}</tbody>
+                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td>
+                                    <td className="p-3 text-xs text-gray-500">
+                                        {o.orderType}
+                                        {isUrgent(o) && (
+                                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 border border-red-200">
+                                                <UI.Clock size={10} className="mr-1"/> 近期交貨
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="p-3"><button className="text-xs border px-2 py-1 rounded">查看</button></td></tr>))}</tbody>
                                 </table>
                             </div>
                         </div>
