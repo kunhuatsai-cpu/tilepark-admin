@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.9 Full Chinese</title>
+    <title>Tile Park Admin System - V15.10 Auto Refresh</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -32,7 +32,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo } = React;
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
         
         // 🔴 Web App 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
@@ -89,6 +89,7 @@
           Filter: (p) => <IconWrap {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>} />,
           Lock: (p) => <IconWrap {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
           Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />,
+          Clock: (p) => <IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />,
           Bug: (p) => <IconWrap {...p} d={<><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 13-3.25-1.62"/><path d="m5 13 3.25-1.62"/><path d="m19 19-3.5-3.5"/><path d="m5 19 3.5-3.5"/><path d="m19 7-3.5 3.5"/><path d="m5 7 3.5 3.5"/></>} />
         };
 
@@ -232,7 +233,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.9</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.10</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -430,6 +431,7 @@
           const [invSearchText, setInvSearchText] = useState("");
           const [invSearchQty, setInvSearchQty] = useState("");
 
+          // V15.10 Auto Refresh Logic
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
@@ -443,7 +445,16 @@
             finally { setLoading(false); }
           }, []);
 
-          useEffect(() => { if (isLoggedIn) fetchAllData(); }, [isLoggedIn, fetchAllData]);
+          useEffect(() => { 
+              if (isLoggedIn) {
+                  fetchAllData();
+                  // V15.10: Set interval for 30 seconds
+                  const interval = setInterval(() => {
+                      fetchAllData();
+                  }, 30000); 
+                  return () => clearInterval(interval);
+              }
+          }, [isLoggedIn, fetchAllData]);
 
           useEffect(() => {
             let res = orders;
@@ -624,18 +635,21 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.9</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.10</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
-                <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
+                <div className="mt-auto text-[10px] text-gray-500 text-center flex flex-col gap-1">
+                    <span>{lastUpdated}</span>
+                    <span className="text-[9px] text-gray-600 flex items-center justify-center gap-1"><UI.Clock size={10}/> 30秒自動更新</span>
+                </div>
               </aside>
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.9</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.10</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
