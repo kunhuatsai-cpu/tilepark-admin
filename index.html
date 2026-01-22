@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V15.11 Urgent Alert</title>
+    <title>Tile Park Admin System - V16.0 Ultimate</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -154,7 +154,7 @@
               }
           });
 
-          // V15.7 Logic
+          // V16.0: 精準比對邏輯 (解決 KOMI-1, KUSABI 等長字串問題)
           const getProductMatches = (orderItemName) => {
               if (!Array.isArray(inventory) || inventory.length === 0) return [];
               
@@ -176,24 +176,22 @@
                 const cleanName = Utils.cleanFuzzy(inv.name);
                 const fullSearchString = cleanID + cleanName;
 
+                // 1. ID 鎖定
                 if (exactIdMatch) {
                     return cleanID === exactIdMatch;
                 }
 
+                // 2. 反向比對
                 if (cleanName.length > 2 && targetCleaned.includes(cleanName)) return true;
                 if (cleanID.length > 2 && targetCleaned.includes(cleanID)) return true;
 
+                // 3. Token 寬容比對
                 if (cleanTokens.length > 0) {
-                    const matchCount = cleanTokens.reduce((acc, token) => {
-                        return acc + (fullSearchString.includes(token) ? 1 : 0);
-                    }, 0);
-                    
-                    if (matchCount > 0) {
-                         if (cleanTokens.length <= 2) return true;
-                         if (matchCount >= cleanTokens.length / 2) return true;
-                    }
+                    const firstToken = cleanTokens[0];
+                    if (firstToken.length > 2 && fullSearchString.includes(firstToken)) return true;
                 }
 
+                // 4. 保底
                 if (cleanID.length > 2 && cleanID === targetCleaned) return true;
 
                 return false;
@@ -204,6 +202,8 @@
                 const qty = Utils.parseQty(curr.qty);
                 if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
                 acc[key].total += qty;
+                
+                // V16.0: 訂單細節中隱藏 0 庫存批號 (減少干擾)
                 if (qty > 0) {
                     acc[key].lots.push(curr);
                 }
@@ -234,7 +234,7 @@
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`${isHoldOrder ? 'bg-blue-600' : 'bg-[#222]'} text-white p-4 flex justify-between items-center shrink-0 transition-colors duration-500`}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V15.11</span>
+                    <span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.0</span>
                     <h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2>
                   </div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
@@ -432,6 +432,7 @@
           const [invSearchText, setInvSearchText] = useState("");
           const [invSearchQty, setInvSearchQty] = useState("");
 
+          // V16.0: Auto-refresh + Loading State
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
@@ -445,7 +446,15 @@
             finally { setLoading(false); }
           }, []);
 
-          useEffect(() => { if (isLoggedIn) fetchAllData(); }, [isLoggedIn, fetchAllData]);
+          useEffect(() => { 
+              if (isLoggedIn) {
+                  fetchAllData();
+                  const interval = setInterval(() => {
+                      fetchAllData();
+                  }, 30000); 
+                  return () => clearInterval(interval);
+              }
+          }, [isLoggedIn, fetchAllData]);
 
           useEffect(() => {
             let res = orders;
@@ -537,6 +546,7 @@
               }, {});
 
               const results = Object.values(allGroups).filter(group => {
+                  // V16.0: Hide 0 stock items in main inventory list
                   if (group.totalQty <= 0) return false;
 
                   if (!hasSearch) return false; 
@@ -607,29 +617,23 @@
                   <h1 className="text-3xl font-black text-white tracking-[0.2em] mb-10 font-sans">TILE PARK</h1>
                   <form onSubmit={(e) => { e.preventDefault(); if(password==='8888') setIsLoggedIn(true); }} className="space-y-6">
                     <input type="password" placeholder="PASSWORD" className="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-white text-center tracking-[1em] focus:border-orange-500 outline-none transition-all font-mono" value={password} onChange={e=>setPassword(e.target.value)} autoFocus />
-                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">Login</button>
+                    <button type="submit" className="w-full bg-[#c25e00] text-white py-4 rounded-2xl font-black tracking-widest hover:bg-orange-600 transition-all uppercase font-bold shadow-lg">登入</button>
                   </form>
                 </div>
               </div>
             );
           }
 
-          // V15.11 Logic: Check urgent hold orders
+          // V16.0: Urgent Logic
           const isUrgent = (order) => {
-              // 1. Must be "Hold"
               if (!Utils.safeStr(order.orderType).includes('保留')) return false;
-              // 2. Must have a delivery date
               if (!order.deliveryDate) return false;
-              
               const delivery = new Date(order.deliveryDate);
               const today = new Date();
               today.setHours(0,0,0,0); 
-              
               const limit = new Date();
-              limit.setDate(today.getDate() + 30); // 30 days window
-
+              limit.setDate(today.getDate() + 30);
               if (isNaN(delivery.getTime())) return false;
-
               return delivery <= limit;
           };
 
@@ -644,18 +648,21 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V15.11</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.0</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
-                <div className="mt-auto text-[10px] text-gray-500 text-center">{lastUpdated}</div>
+                <div className="mt-auto text-[10px] text-gray-500 text-center flex flex-col gap-1">
+                    <span>{lastUpdated}</span>
+                    <span className="text-[9px] text-gray-600 flex items-center justify-center gap-1"><UI.Clock size={10}/> 30秒自動更新</span>
+                </div>
               </aside>
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V15.11</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.0</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
