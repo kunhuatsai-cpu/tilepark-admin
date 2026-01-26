@@ -202,31 +202,25 @@
                       fileData: compressedBase64
                   };
                   
-                  // 發送上傳請求
+                  // 發送上傳請求 (移除 no-cors 以便讀取回傳值)
                   const response = await fetch(API_URL, {
                       method: 'POST',
-                      mode: 'no-cors',
                       body: new URLSearchParams({ payload: JSON.stringify(payload) })
                   });
                   
-                  // 因為 no-cors 無法讀取回傳值，我們稍等一下後直接更新狀態
-                  // 更好的做法是後端更新完成後，前端重新整理，但這裡我們先做一個簡單的提示
-                  // 為了即時顯示，我們假設成功並暫時顯示一個 placeholder 或等待下一次 refresh
-                  // 實際上，為了確保連結正確填入，我們可以在 handleSave 時再一起送一次，但圖片較大建議分開
-                  
-                  // 由於 no-cors 限制，我們無法直接拿到新的 URL。
-                  // 替代方案：我們假設上傳成功，並提示使用者「上傳中，請稍後重整」。
-                  // 或者，如果不使用 no-cors (需調整 CORS 設定)，但目前架構是 no-cors。
-                  
-                  // 修正策略：我們在前端模擬一個成功狀態，等待 3 秒後自動重整資料
-                  setTimeout(() => {
-                     alert("上傳指令已送出！請稍後重新整理頁面查看連結。");
-                     setIsUploading(false);
-                  }, 2000);
+                  const result = await response.json();
+
+                  if (result.result === 'success' && result.url) {
+                      setReceiptUrl(result.url); // 立即更新介面顯示連結
+                      alert("✅ 上傳成功！連結已自動填入。");
+                  } else {
+                      alert("⚠️ 上傳可能完成但未回傳連結，請稍後重整確認。");
+                  }
 
               } catch (error) {
                   console.error(error);
-                  alert("上傳失敗，請重試");
+                  alert("❌ 上傳失敗，請檢查網路或重試");
+              } finally {
                   setIsUploading(false);
               }
           };
@@ -318,7 +312,7 @@
                                          className={`px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-1 text-white shadow-sm transition-all ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-teal-500 hover:bg-teal-600 active:scale-95'}`}
                                       >
                                          {isUploading ? <UI.Loader size={14} className="animate-spin"/> : <UI.Camera size={14}/>}
-                                         {isUploading ? '上傳中' : '拍照'}
+                                         {isUploading ? '上傳中' : '上傳檔案'}
                                       </button>
                                   </div>
                               </div>
