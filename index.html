@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V16.3</title>
+    <title>Tile Park Admin System - V16.4</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -32,7 +32,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo } = React;
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
         
         // 🔴 Web App 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbyKP7YGKdSFYYJMEI2tH7t3u3lILjfc3XGK-xlFx0o3se2_QnnvP-vNtEGcgZXt1Xx7/exec";
@@ -44,6 +44,32 @@
             parseQty: (v) => { const s = Utils.safeStr(v).replace(/,/g, ''); const num = parseFloat(s); return isNaN(num) ? 0 : num; },
             cleanFuzzy: (v) => { return Utils.safeStr(v).normalize('NFKC').toLowerCase().replace(/[^\w\u4e00-\u9fa5]/g, ''); },
             formatBatch: (v) => { const s = Utils.safeStr(v); if (s.toUpperCase().includes('E+')) { const num = parseFloat(s); return isNaN(num) ? s : String(num); } return s; }
+        };
+
+        // 🌟 圖片壓縮工具
+        const compressImage = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const MAX_WIDTH = 1000;
+                        const MAX_HEIGHT = 1000;
+                        if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
+                        else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 壓縮為 70% 品質 JPEG
+                    };
+                };
+                reader.onerror = (error) => reject(error);
+            });
         };
 
         // --- UI Icons ---
@@ -67,7 +93,8 @@
           Alert: (p) => <IconWrap {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />,
           Clock: (p) => <IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />,
           Bug: (p) => <IconWrap {...p} d={<><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 13-3.25-1.62"/><path d="m5 13 3.25-1.62"/><path d="m19 19-3.5-3.5"/><path d="m5 19 3.5-3.5"/><path d="m19 7-3.5 3.5"/><path d="m5 7 3.5 3.5"/></>} />,
-          Link: (p) => <IconWrap {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>} />
+          Link: (p) => <IconWrap {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>} />,
+          Camera: (p) => <IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>} />
         };
 
         const StatusBadge = ({ status }) => {
@@ -101,14 +128,17 @@
           const [sitePhone, setSitePhone] = useState(Utils.safeStr(order.sitePhone));
           const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
           
-          // 🌟 V16.1 新增：物流與簽單欄位
+          // 物流欄位
           const [trackingNumber, setTrackingNumber] = useState(Utils.safeStr(order.trackingNumber));
           const [shippingMethod, setShippingMethod] = useState(Utils.safeStr(order.shippingMethod));
           const [receiptUrl, setReceiptUrl] = useState(Utils.safeStr(order.receiptUrl));
 
           const [isSavingDetails, setIsSavingDetails] = useState(false);
           const [saveSuccess, setSaveSuccess] = useState(false);
-          
+          const [isUploading, setIsUploading] = useState(false); // 上傳狀態
+
+          const fileInputRef = useRef(null); // 檔案輸入參照
+
           const [editableItems, setEditableItems] = useState(() => {
               try {
                 const rawItems = Utils.safeStr(order.items).split('\n').filter(l => l.trim() !== "");
@@ -158,11 +188,53 @@
               setEditableItems(updated);
           };
 
+          // 🌟 處理檔案選擇與上傳
+          const handleFileChange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+
+              setIsUploading(true);
+              try {
+                  const compressedBase64 = await compressImage(file);
+                  const payload = {
+                      action: 'uploadReceipt',
+                      orderId: order.orderId,
+                      fileData: compressedBase64
+                  };
+                  
+                  // 發送上傳請求
+                  const response = await fetch(API_URL, {
+                      method: 'POST',
+                      mode: 'no-cors',
+                      body: new URLSearchParams({ payload: JSON.stringify(payload) })
+                  });
+                  
+                  // 因為 no-cors 無法讀取回傳值，我們稍等一下後直接更新狀態
+                  // 更好的做法是後端更新完成後，前端重新整理，但這裡我們先做一個簡單的提示
+                  // 為了即時顯示，我們假設成功並暫時顯示一個 placeholder 或等待下一次 refresh
+                  // 實際上，為了確保連結正確填入，我們可以在 handleSave 時再一起送一次，但圖片較大建議分開
+                  
+                  // 由於 no-cors 限制，我們無法直接拿到新的 URL。
+                  // 替代方案：我們假設上傳成功，並提示使用者「上傳中，請稍後重整」。
+                  // 或者，如果不使用 no-cors (需調整 CORS 設定)，但目前架構是 no-cors。
+                  
+                  // 修正策略：我們在前端模擬一個成功狀態，等待 3 秒後自動重整資料
+                  setTimeout(() => {
+                     alert("上傳指令已送出！請稍後重新整理頁面查看連結。");
+                     setIsUploading(false);
+                  }, 2000);
+
+              } catch (error) {
+                  console.error(error);
+                  alert("上傳失敗，請重試");
+                  setIsUploading(false);
+              }
+          };
+
           const handleSave = async () => {
               setIsSavingDetails(true);
               try {
                 const itemsString = editableItems.map(i => `${i.name} x ${i.currentQty}${i.unit} ${i.note ? `(${i.note})` : ''}`).join('\n');
-                // 🌟 同步儲存所有新增欄位
                 const success = await onUpdateDetails(order.orderId, { 
                     orderType, internalNote, factoryEta, deliveryDate, siteContact, sitePhone, address, 
                     items: itemsString,
@@ -178,7 +250,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.2</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.4</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -202,7 +274,7 @@
                             </label>
                       </div>
 
-                      {/* 🌟 V16.3 新增：物流與簽單管理區塊 (新增黑貓) */}
+                      {/* 🌟 V16.4 更新：物流與簽單管理 (含拍照按鈕) */}
                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-6">
                           <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4"><UI.Truck size={18}/> 物流與簽單管理 (前台可見)</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -223,10 +295,31 @@
                                   </select>
                               </div>
                               <div>
-                                  <label className="block text-xs font-bold text-gray-400 mb-1">簽單/照片連結 (Receipt URL)</label>
-                                  <div className="flex gap-2">
-                                      <input type="text" value={receiptUrl} onChange={e=>setReceiptUrl(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 outline-none" placeholder="Google Drive 公開連結..."/>
-                                      {receiptUrl && <a href={receiptUrl} target="_blank" className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"><UI.Link size={18}/></a>}
+                                  <label className="block text-xs font-bold text-gray-400 mb-1">簽單/照片 (Receipt)</label>
+                                  <div className="flex gap-2 items-center">
+                                      {/* 隱藏的檔案輸入 */}
+                                      <input 
+                                         type="file" 
+                                         accept="image/*" 
+                                         capture="environment" 
+                                         className="hidden" 
+                                         ref={fileInputRef} 
+                                         onChange={handleFileChange} 
+                                      />
+                                      
+                                      <div className="flex-1 relative">
+                                          <input type="text" value={receiptUrl} onChange={e=>setReceiptUrl(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:border-blue-500 outline-none" placeholder="連結或點擊右側拍照..."/>
+                                          {receiptUrl && <a href={receiptUrl} target="_blank" className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-700"><UI.Link size={16}/></a>}
+                                      </div>
+
+                                      <button 
+                                         onClick={() => fileInputRef.current.click()} 
+                                         disabled={isUploading}
+                                         className={`px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-1 text-white shadow-sm transition-all ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-teal-500 hover:bg-teal-600 active:scale-95'}`}
+                                      >
+                                         {isUploading ? <UI.Loader size={14} className="animate-spin"/> : <UI.Camera size={14}/>}
+                                         {isUploading ? '上傳中' : '拍照'}
+                                      </button>
                                   </div>
                               </div>
                           </div>
@@ -554,7 +647,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.2</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.4</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -568,7 +661,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.2</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.4</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
