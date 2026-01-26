@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V16.6</title>
+    <title>Tile Park Admin System - V17.1</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -65,7 +65,7 @@
                         canvas.width = width; canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 壓縮為 70% 品質 JPEG
+                        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
                     };
                 };
                 reader.onerror = (error) => reject(error);
@@ -94,7 +94,9 @@
           Clock: (p) => <IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />,
           Bug: (p) => <IconWrap {...p} d={<><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 13-3.25-1.62"/><path d="m5 13 3.25-1.62"/><path d="m19 19-3.5-3.5"/><path d="m5 19 3.5-3.5"/><path d="m19 7-3.5 3.5"/><path d="m5 7 3.5 3.5"/></>} />,
           Link: (p) => <IconWrap {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>} />,
-          Camera: (p) => <IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>} />
+          Camera: (p) => <IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>} />,
+          Audit: (p)=><IconWrap {...p} d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>}/>,
+          Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>
         };
 
         const StatusBadge = ({ status }) => {
@@ -113,6 +115,66 @@
                 return this.props.children;
             }
         }
+
+        // 🌟 新增：盤點回報視窗
+        const StocktakeModal = ({ product, batch, onClose, onSubmit }) => {
+            const [actualQty, setActualQty] = useState(batch.qty);
+            const [note, setNote] = useState("");
+            const diff = actualQty - batch.qty;
+
+            const handleSubmit = () => {
+                onSubmit({
+                    productId: product.id,
+                    productName: product.name,
+                    batch: batch.lot,
+                    systemQty: batch.qty,
+                    actualQty: actualQty,
+                    diff: diff,
+                    note: note
+                });
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
+                    <div className="bg-white w-full max-w-sm rounded-xl overflow-hidden shadow-2xl">
+                        <div className="bg-purple-600 p-4 text-white flex justify-between items-center">
+                            <h3 className="font-bold flex items-center gap-2"><UI.Edit size={18}/> 盤點回報</h3>
+                            <button onClick={onClose}><UI.Close size={20}/></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-sm text-gray-600">
+                                <div className="font-bold text-gray-800 mb-1">{product.name}</div>
+                                <div className="flex gap-4">
+                                    <span className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">ID: {product.id}</span>
+                                    <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded font-mono text-xs font-bold">批號: {batch.lot}</span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400">系統數量</label>
+                                    <div className="text-2xl font-black text-gray-400 font-mono">{batch.qty}</div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-purple-600">實際數量</label>
+                                    <input type="number" value={actualQty} onChange={e=>setActualQty(Number(e.target.value))} className="w-full text-2xl font-black text-gray-800 border-b-2 border-purple-500 outline-none font-mono" autoFocus/>
+                                </div>
+                            </div>
+                            <div className={`text-center p-2 rounded font-bold text-sm ${diff!==0 ? 'bg-red-50 text-red-600':'bg-gray-50 text-gray-400'}`}>
+                                差異數: {diff > 0 ? `+${diff}` : diff}
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-400">備註 (原因)</label>
+                                <input type="text" value={note} onChange={e=>setNote(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="例如: 破損, 找不到..."/>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 text-gray-500 font-bold text-sm hover:bg-gray-100 rounded">取消</button>
+                            <button onClick={handleSubmit} className="px-6 py-2 bg-purple-600 text-white font-bold text-sm rounded shadow hover:bg-purple-700">送出回報</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
@@ -179,8 +241,6 @@
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
               }, {});
-              
-              // 🌟 修正：隱藏庫存為 0 的匹配項目
               return Object.values(groups).filter(g => g.total > 0);
           };
 
@@ -190,7 +250,6 @@
               setEditableItems(updated);
           };
 
-          // 🌟 處理檔案選擇與上傳
           const handleFileChange = async (e) => {
               const file = e.target.files[0];
               if (!file) return;
@@ -253,12 +312,11 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.6</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.0</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
                   <ErrorBoundary onClose={onClose}>
-                      {/* 狀態切換 */}
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all ${isStockConfirmed ? 'bg-teal-500 border-teal-500 shadow-lg' : 'bg-white border-gray-200'}`}>
@@ -277,7 +335,6 @@
                             </label>
                       </div>
 
-                      {/* 🌟 V16.5 更新：物流與簽單管理 (含上傳檔案按鈕 & 黑貓) */}
                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-6">
                           <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4"><UI.Truck size={18}/> 物流與簽單管理 (前台可見)</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -328,7 +385,6 @@
                           </div>
                       </div>
 
-                      {/* 原有訂單資訊 (縮減版) */}
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                             <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2"><UI.File size={18} className="text-gray-400"/> 基本資料</h4>
@@ -421,6 +477,7 @@
           const [password, setPassword] = useState("");
           const [orders, setOrders] = useState([]);
           const [inventory, setInventory] = useState([]);
+          const [stocktakeLog, setStocktakeLog] = useState([]); 
           const [filteredOrders, setFilteredOrders] = useState([]);
           const [searchTerm, setSearchTerm] = useState("");
           const [selectedOrder, setSelectedOrder] = useState(null);
@@ -433,8 +490,8 @@
           const [currentView, setCurrentView] = useState('orders'); 
           const [invSearchText, setInvSearchText] = useState("");
           const [invSearchQty, setInvSearchQty] = useState("");
+          const [stocktakeTarget, setStocktakeTarget] = useState(null); 
 
-          // V16.0: Auto-refresh + Loading State
           const fetchAllData = useCallback(async () => {
             setLoading(true); setApiError(null);
             try {
@@ -443,6 +500,12 @@
               if (result.error) throw new Error(result.error);
               setOrders(result.orders || []);
               setInventory(result.inventory || []);
+
+              // 抓取盤點紀錄
+              const resLog = await fetch(`${API_URL}?action=getStocktakeLog&t=${Date.now()}`, { redirect: 'follow' });
+              const resultLog = await resLog.json();
+              if (resultLog.log) setStocktakeLog(resultLog.log);
+
               setLastUpdated(new Date().toLocaleTimeString());
             } catch (error) { console.error("Fetch Error:", error); setApiError("無法讀取雲端數據"); } 
             finally { setLoading(false); }
@@ -543,14 +606,13 @@
                       };
                   }
                   acc[key].totalQty += qty;
+                  // V16.0: Hide 0 stock items in main inventory list
                   if (qty > 0) acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
                   return acc;
               }, {});
 
               const results = Object.values(allGroups).filter(group => {
-                  // V16.0: Hide 0 stock items in main inventory list
                   if (group.totalQty <= 0) return false;
-
                   if (!hasSearch) return false; 
                   let matchText = true;
                   let matchQty = true;
@@ -612,6 +674,29 @@
               }
           };
 
+          // 🌟 處理盤點回報
+          const handleReportStocktake = async (data) => {
+              setStocktakeTarget(null); 
+              const success = await sendCommand({ action: 'addStocktake', ...data });
+              if (success) {
+                  alert("✅ 盤點紀錄已送出！請至「盤點稽核」頁面查看。");
+                  fetchAllData(); 
+              } else {
+                  alert("❌ 回報失敗");
+              }
+          };
+
+          // 🌟 處理盤點結案
+          const handleResolveStocktake = async (item) => {
+              if(!confirm("確認已在 ERP 修正此庫存？")) return;
+              const success = await sendCommand({ action: 'resolveStocktake', productId: item.productId, batch: item.batch, timestamp: item.timestamp });
+              if (success) {
+                  fetchAllData();
+              } else {
+                  alert("結案失敗");
+              }
+          };
+
           if (!isLoggedIn) {
             return (
               <div className="fixed inset-0 bg-[#111] flex items-center justify-center p-4 z-50">
@@ -650,10 +735,13 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.6</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.1</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
+                    <button onClick={() => setCurrentView('stocktake')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'stocktake' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}>
+                        <div className="relative"><UI.Audit size={18} />{stocktakeLog.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>}</div> 盤點稽核
+                    </button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Bug size={18} /> 系統診斷</button>
                 </nav>
                 <div className="mt-auto text-[10px] text-gray-500 text-center flex flex-col gap-1">
@@ -663,14 +751,11 @@
               </aside>
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
-                  <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.6</span></span>
-                      <span className="text-[10px] text-gray-500">{lastUpdated}</span>
-                  </div>
-                  <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
-                      <button onClick={() => setCurrentView('orders')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='orders'?'bg-orange-600 text-white':'hover:bg-[#333]'}`}><UI.File size={16}/> 訂單</button>
-                      <button onClick={() => setCurrentView('inventory')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='inventory'?'bg-teal-600 text-white':'hover:bg-[#333]'}`}><UI.Box size={16}/> 庫存</button>
-                      <button onClick={() => setCurrentView('diagnosis')} className={`py-3 flex justify-center items-center gap-2 ${currentView==='diagnosis'?'bg-red-600 text-white':'hover:bg-[#333]'}`}><UI.Bug size={16}/> 診斷</button>
+                  <div className="grid grid-cols-4 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
+                      <button onClick={() => setCurrentView('orders')} className={`py-3 flex justify-center items-center ${currentView==='orders'?'bg-orange-600 text-white':''}`}><UI.File size={16}/></button>
+                      <button onClick={() => setCurrentView('inventory')} className={`py-3 flex justify-center items-center ${currentView==='inventory'?'bg-teal-600 text-white':''}`}><UI.Box size={16}/></button>
+                      <button onClick={() => setCurrentView('stocktake')} className={`py-3 flex justify-center items-center relative ${currentView==='stocktake'?'bg-purple-600 text-white':''}`}><UI.Audit size={16}/>{stocktakeLog.length>0&&<span className="absolute top-2 right-6 w-2 h-2 bg-red-500 rounded-full"></span>}</button>
+                      <button onClick={() => setCurrentView('diagnosis')} className={`py-3 flex justify-center items-center ${currentView==='diagnosis'?'bg-red-600 text-white':''}`}><UI.Bug size={16}/></button>
                   </div>
               </div>
 
@@ -718,12 +803,13 @@
                             </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar pb-24 min-h-0">
-                            {groupedInventory.length === 0 ? (
+                             {groupedInventory.length === 0 ? (
                                 <div className="text-center py-20 text-gray-400"><UI.Box size={48} className="mx-auto mb-4 opacity-20"/><p>無符合資料</p></div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                                     {groupedInventory.map((item, idx) => (
                                         <div key={idx} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${item.reservedQty>0?'border-orange-300 ring-1 ring-orange-100':''}`}>
+                                            {/* Header Section */}
                                             <div className="p-4 border-b bg-gray-50/50 flex justify-between items-start">
                                                 <div>
                                                     <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-1 rounded font-mono font-bold">{item.id}</span>
@@ -732,10 +818,14 @@
                                                 </div>
                                                 <div className="text-right shrink-0 ml-2"><span className="text-xs text-gray-400 font-bold block">TOTAL</span><span className="text-2xl font-black text-teal-600">{item.totalQty.toLocaleString()}</span></div>
                                             </div>
+                                            
+                                            {/* Stats Section */}
                                             <div className="p-3 bg-white flex justify-between items-center border-b">
                                                 <div className="flex flex-col"><span className="text-[10px] text-gray-400 font-bold">RESERVED</span><span className={`font-mono font-bold ${item.reservedQty>0?'text-orange-600':'text-gray-300'}`}>{item.reservedQty>0?`-${item.reservedQty}`:'0'}</span></div>
                                                 <div className="flex flex-col text-right"><span className="text-[10px] text-gray-400 font-bold">AVAILABLE</span><span className="font-mono text-xl font-black text-gray-800">{(item.totalQty-item.reservedQty).toLocaleString()}</span></div>
                                             </div>
+
+                                            {/* Reserved Details */}
                                             {item.reservedQty > 0 && (
                                                 <div className="bg-orange-50 p-3 border-b border-orange-100 space-y-1">
                                                     <div className="text-[10px] font-bold text-orange-400 flex items-center gap-1"><UI.Lock size={10}/> 保留明細</div>
@@ -744,12 +834,60 @@
                                                     ))}
                                                 </div>
                                             )}
-                                            <div className="p-3 bg-gray-50 space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                                                {item.batches.map((b, bi)=>(<div key={bi} className="flex justify-between text-xs text-gray-600 border-b border-gray-100 last:border-0 pb-1">
-                                                    <span className="font-mono font-bold">{b.lot||'No Batch'}</span>
-                                                    <span className="font-mono">{b.qty}</span>
-                                                </div>))}
+
+                                            {/* Batch List with Stocktake Button */}
+                                            <div className="p-3 bg-gray-50 space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+                                                {item.batches.map((b, bi)=>(
+                                                    <div key={bi} className="flex justify-between items-center text-xs text-gray-600 border-b border-gray-100 last:border-0 pb-2 pt-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded font-mono font-bold">{b.lot||'No Batch'}</span>
+                                                            <span className="font-mono font-bold text-teal-700 text-sm">{b.qty}</span>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => setStocktakeTarget({ product: item, batch: b })}
+                                                            className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-purple-600 border border-transparent hover:border-purple-200 px-2 py-1 rounded transition-all bg-white shadow-sm"
+                                                        >
+                                                            <UI.Edit size={10}/> 盤點
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {currentView === 'stocktake' && (
+                    <div className="flex flex-col h-full">
+                         <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><UI.Audit className="text-purple-600"/> 盤點待辦事項</h2>
+                            <button onClick={fetchAllData} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><UI.Refresh size={18}/></button>
+                        </header>
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0 bg-gray-50">
+                            {stocktakeLog.length === 0 ? <div className="text-center py-20 text-gray-400">目前沒有待修正的庫存</div> : (
+                                <div className="space-y-4">
+                                    {stocktakeLog.map((log, idx) => (
+                                        <div key={idx} className="bg-white p-4 rounded-xl border border-l-4 border-l-purple-500 shadow-sm flex justify-between items-start">
+                                            <div>
+                                                <div className="text-xs text-gray-400 mb-1">{new Date(log.timestamp).toLocaleString()}</div>
+                                                <div className="font-bold text-gray-800 mb-1">{log.productName}</div>
+                                                <div className="flex gap-2 mb-2">
+                                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{log.productId}</span>
+                                                    <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs font-mono font-bold">Batch: {log.batch}</span>
+                                                </div>
+                                                <div className="text-sm flex items-center gap-3">
+                                                    <span className="text-gray-400 line-through">系統: {log.systemQty}</span>
+                                                    <span className="text-purple-600 font-bold text-lg">實際: {log.actualQty}</span>
+                                                    <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs font-bold">差異 {log.diff > 0 ? '+'+log.diff : log.diff}</span>
+                                                </div>
+                                                {log.note && <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">備註: {log.note}</div>}
+                                            </div>
+                                            <button onClick={()=>handleResolveStocktake(log)} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-700 shadow-lg shadow-purple-200 active:scale-95 transition-all">
+                                                ✅ 已修正
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -791,6 +929,9 @@
                 )}
               </main>
 
+              {/* 盤點視窗 */}
+              {stocktakeTarget && <StocktakeModal product={stocktakeTarget.product} batch={stocktakeTarget.batch} onClose={()=>setStocktakeTarget(null)} onSubmit={handleReportStocktake} />}
+              
               {selectedOrder && <OrderDetailModal order={selectedOrder} inventory={inventory} onClose={()=>setSelectedOrder(null)} onUpdateStatus={handleStatusUpdate} onUpdateDetails={handleUpdateDetails} onDelete={ids => handleStatusUpdate(ids, 'delete')} isProcessing={loading} />}
             </div>
           );
