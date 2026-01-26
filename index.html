@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V17.1</title>
+    <title>Tile Park Admin System - V17.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -116,7 +116,7 @@
             }
         }
 
-        // 🌟 新增：盤點回報視窗
+        // 🌟 盤點回報視窗
         const StocktakeModal = ({ product, batch, onClose, onSubmit }) => {
             const [actualQty, setActualQty] = useState(batch.qty);
             const [note, setNote] = useState("");
@@ -312,11 +312,12 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.0</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.2</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
                   <ErrorBoundary onClose={onClose}>
+                      {/* 狀態切換 */}
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
                             <label className="flex-1 flex items-center gap-4 cursor-pointer select-none">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all ${isStockConfirmed ? 'bg-teal-500 border-teal-500 shadow-lg' : 'bg-white border-gray-200'}`}>
@@ -335,6 +336,7 @@
                             </label>
                       </div>
 
+                      {/* 物流與簽單管理 (V16.5 功能) */}
                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-6">
                           <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4"><UI.Truck size={18}/> 物流與簽單管理 (前台可見)</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -385,6 +387,7 @@
                           </div>
                       </div>
 
+                      {/* 原有訂單資訊 (縮減版) */}
                       <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                             <h4 className="font-bold text-gray-700 flex items-center gap-2 border-b pb-2"><UI.File size={18} className="text-gray-400"/> 基本資料</h4>
@@ -735,7 +738,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.1</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.2</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -863,7 +866,7 @@
                 {currentView === 'stocktake' && (
                     <div className="flex flex-col h-full">
                          <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
-                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><UI.Audit className="text-purple-600"/> 盤點待辦事項</h2>
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><UI.Audit className="text-purple-600"/> 盤點待辦事項 (待處理)</h2>
                             <button onClick={fetchAllData} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><UI.Refresh size={18}/></button>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0 bg-gray-50">
@@ -885,9 +888,12 @@
                                                 </div>
                                                 {log.note && <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">備註: {log.note}</div>}
                                             </div>
-                                            <button onClick={()=>handleResolveStocktake(log)} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-700 shadow-lg shadow-purple-200 active:scale-95 transition-all">
-                                                ✅ 已修正
-                                            </button>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded font-bold">狀態: 待處理</span>
+                                                <button onClick={()=>handleResolveStocktake(log)} className="bg-white border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-600 hover:text-white shadow-sm active:scale-95 transition-all flex items-center gap-1">
+                                                    <UI.Check size={14}/> 點擊結案
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
