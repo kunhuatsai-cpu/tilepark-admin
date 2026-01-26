@@ -188,7 +188,7 @@
               setEditableItems(updated);
           };
 
-          // 🌟 處理檔案選擇與上傳 (修復版：移除 no-cors)
+          // 🌟 處理檔案選擇與上傳 (修復版：移除 no-cors，精確錯誤處理)
           const handleFileChange = async (e) => {
               const file = e.target.files[0];
               if (!file) return;
@@ -202,11 +202,14 @@
                       fileData: compressedBase64
                   };
                   
-                  // 使用標準 POST，期望回傳 JSON
+                  // 使用標準 POST，期望回傳 JSON，並 explicit follow redirects
                   const response = await fetch(API_URL, {
                       method: 'POST',
-                      body: new URLSearchParams({ payload: JSON.stringify(payload) })
+                      body: new URLSearchParams({ payload: JSON.stringify(payload) }),
+                      redirect: 'follow' 
                   });
+                  
+                  if (!response.ok) throw new Error("Network response was not ok");
                   
                   const result = await response.json();
 
@@ -214,12 +217,13 @@
                       setReceiptUrl(result.url); 
                       alert("✅ 上傳成功！連結已自動填入。");
                   } else {
-                      alert("⚠️ 上傳可能完成但未回傳連結，請稍後重整確認。");
+                      // 後端回傳了非成功狀態，顯示具體訊息
+                      throw new Error(result.message || "上傳未回傳連結，請稍後重試");
                   }
 
               } catch (error) {
                   console.error(error);
-                  alert("❌ 上傳失敗，請檢查網路或重試");
+                  alert(`❌ 上傳失敗: ${error.message || "請檢查網路或重試"}`);
               } finally {
                   setIsUploading(false);
                   // 清空 input 避免重複選擇同一檔案不觸發 onChange
