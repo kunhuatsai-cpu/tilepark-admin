@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V16.2</title>
+    <title>Tile Park Admin System - V16.3</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -101,7 +101,7 @@
           const [sitePhone, setSitePhone] = useState(Utils.safeStr(order.sitePhone));
           const [address, setAddress] = useState(Utils.safeStr(order.address || order.shippingAddress));
           
-          // 🌟 新增：物流與簽單欄位
+          // 🌟 V16.1 新增：物流與簽單欄位
           const [trackingNumber, setTrackingNumber] = useState(Utils.safeStr(order.trackingNumber));
           const [shippingMethod, setShippingMethod] = useState(Utils.safeStr(order.shippingMethod));
           const [receiptUrl, setReceiptUrl] = useState(Utils.safeStr(order.receiptUrl));
@@ -202,7 +202,7 @@
                             </label>
                       </div>
 
-                      {/* 🌟 V16.1 新增：物流與簽單管理區塊 */}
+                      {/* 🌟 V16.3 新增：物流與簽單管理區塊 (新增黑貓) */}
                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-6">
                           <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4"><UI.Truck size={18}/> 物流與簽單管理 (前台可見)</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -216,6 +216,7 @@
                                       <option value="">選擇方式...</option>
                                       <option value="新竹物流">新竹物流</option>
                                       <option value="大榮貨運">大榮貨運</option>
+                                      <option value="黑貓宅急便">黑貓宅急便</option>
                                       <option value="回頭車">回頭車</option>
                                       <option value="公司車">公司車</option>
                                       <option value="自取">自取</option>
@@ -515,7 +516,6 @@
               }
           };
 
-          // 🔴 登入畫面：移除訪客預覽，恢復僅密碼登入
           if (!isLoggedIn) {
             return (
               <div className="fixed inset-0 bg-[#111] flex items-center justify-center p-4 z-50">
