@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V16.5</title>
+    <title>Tile Park Admin System - V16.6</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -179,7 +179,9 @@
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
               }, {});
-              return Object.values(groups);
+              
+              // 🌟 修正：隱藏庫存為 0 的匹配項目
+              return Object.values(groups).filter(g => g.total > 0);
           };
 
           const handleUpdateItemQty = (index, value) => {
@@ -188,7 +190,7 @@
               setEditableItems(updated);
           };
 
-          // 🌟 處理檔案選擇與上傳 (修復版：移除 no-cors，精確錯誤處理)
+          // 🌟 處理檔案選擇與上傳
           const handleFileChange = async (e) => {
               const file = e.target.files[0];
               if (!file) return;
@@ -202,7 +204,6 @@
                       fileData: compressedBase64
                   };
                   
-                  // 使用標準 POST，期望回傳 JSON，並 explicit follow redirects
                   const response = await fetch(API_URL, {
                       method: 'POST',
                       body: new URLSearchParams({ payload: JSON.stringify(payload) }),
@@ -217,16 +218,18 @@
                       setReceiptUrl(result.url); 
                       alert("✅ 上傳成功！連結已自動填入。");
                   } else {
-                      // 後端回傳了非成功狀態，顯示具體訊息
                       throw new Error(result.message || "上傳未回傳連結，請稍後重試");
                   }
 
               } catch (error) {
                   console.error(error);
-                  alert(`❌ 上傳失敗: ${error.message || "請檢查網路或重試"}`);
+                  if (error.message && (error.message.includes("權限") || error.message.includes("permission") || error.message.includes("DriveApp"))) {
+                      alert("❌ 上傳失敗：Google Drive 權限不足。\n\n請至 Apps Script 後台執行 'manualSetupDriveFolder' 函式以完成授權。");
+                  } else {
+                      alert(`❌ 上傳失敗: ${error.message || "請檢查網路或重試"}`);
+                  }
               } finally {
                   setIsUploading(false);
-                  // 清空 input 避免重複選擇同一檔案不觸發 onChange
                   if(fileInputRef.current) fileInputRef.current.value = '';
               }
           };
@@ -250,7 +253,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.5</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V16.6</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -647,7 +650,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.5</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V16.6</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -661,7 +664,7 @@
 
               <div className="md:hidden bg-[#1a1a1a] flex flex-col shrink-0 z-50">
                   <div className="p-3 flex justify-between items-center">
-                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.5</span></span>
+                      <span className="font-black text-white text-lg">TILE PARK <span className="text-[10px] text-orange-500">V16.6</span></span>
                       <span className="text-[10px] text-gray-500">{lastUpdated}</span>
                   </div>
                   <div className="grid grid-cols-3 bg-[#2a2a2a] text-gray-400 text-sm font-bold">
