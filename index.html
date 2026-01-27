@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V17.6</title>
+    <title>Tile Park Admin System - V17.7</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -41,13 +41,25 @@
             parseQty: (v) => { const s = Utils.safeStr(v).replace(/,/g, ''); const num = parseFloat(s); return isNaN(num) ? 0 : num; },
             cleanFuzzy: (v) => { return Utils.safeStr(v).normalize('NFKC').toLowerCase().replace(/[^\w\u4e00-\u9fa5]/g, ''); },
             formatBatch: (v) => { const s = Utils.safeStr(v); if (s.toUpperCase().includes('E+')) { const num = parseFloat(s); return isNaN(num) ? s : String(num); } return s; },
-            // 🌟 格式化日期 (去除時間)
             formatDateShort: (dateStr) => { 
                 if(!dateStr) return '';
+                try { const d = new Date(dateStr); return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); } catch(e) { return dateStr; }
+            },
+            // 🌟 V17.7 新增：快速解析品項字串 (用於列表預覽)
+            parseItemsStr: (str) => {
+                if(!str) return [];
                 try {
-                    const d = new Date(dateStr);
-                    return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
-                } catch(e) { return dateStr; }
+                    return str.split('\n').filter(l => l.trim() !== "").map(line => {
+                        let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
+                        s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
+                        // 使用 V17.4 的貪婪模式正則
+                        const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
+                        if (match && match[1] && match[2]) {
+                            return { name: match[1].trim(), qty: match[2].trim(), unit: (match[3]||'').trim() };
+                        }
+                        return { name: s, qty: '?', unit: '' };
+                    });
+                } catch(e) { return []; }
             }
         };
 
@@ -89,7 +101,7 @@
             Link: (p)=><IconWrap {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>}/>,
             Camera: (p)=><IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}/>,
             Audit: (p)=><IconWrap {...p} d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>}/>,
-            Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>
+            Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>
         };
 
         const StatusBadge = ({ status }) => {
@@ -158,16 +170,7 @@
 
           const [editableItems, setEditableItems] = useState(() => {
               try {
-                const rawItems = Utils.safeStr(order.items).split('\n').filter(l => l.trim() !== "");
-                return rawItems.map(line => {
-                    let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
-                    s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
-                    const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
-                    if (match && match[1] && match[2]) {
-                        return { name: match[1].trim(), originalQty: match[2].trim(), currentQty: match[2].trim(), unit: (match[3]||'').trim(), note: match[4] ? `[${match[4]}]` : '' };
-                    }
-                    return { name: s, originalQty: '1', currentQty: '1', unit: '', note: '' };
-                });
+                return Utils.parseItemsStr(order.items).map(i => ({...i, originalQty: i.qty, currentQty: i.qty, note: ''}));
               } catch (e) { return [{ name: "解析錯誤", originalQty: '0', currentQty: '0', unit: '', note: '' }]; }
           });
 
@@ -240,7 +243,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.6</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.7</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -415,23 +418,17 @@
                   const isHold = Utils.safeStr(o.orderType).includes('保留');
                   const isShipped = o.status === '已排單出貨'; 
                   if (isHold && !isShipped) {
-                      const rawItems = Utils.safeStr(o.items).split('\n').filter(l => l.trim() !== "");
-                      rawItems.forEach(line => {
-                          let s = Utils.safeStr(line).replace(/^(\d{1,3}[\.\s])\s*/, '').trim();
-                          const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\d\s]*)$/);
-                          let qty = 1;
-                          if (match && match[1] && match[2]) {
-                              qty = Utils.parseQty(match[2]);
-                              s = match[1].trim(); 
-                          }
-                          const cleanFullLine = Utils.cleanFuzzy(s); 
-                          const tokens = s.split(/[\s,]+/); 
+                      const itemLines = Utils.parseItemsStr(o.items);
+                      itemLines.forEach(item => {
+                          let qty = Utils.parseQty(item.qty);
+                          const cleanFullLine = Utils.cleanFuzzy(item.name); 
+                          const tokens = item.name.split(/[\s,]+/); 
                           const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
                           if (qty > 0) {
                               pendingItems.push({
                                   company: o.company,
                                   qty: qty,
-                                  originalName: s, 
+                                  originalName: item.name, 
                                   cleanName: cleanFullLine, 
                                   cleanTokens: cleanTokens, 
                                   orderId: o.orderId,
@@ -609,7 +606,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.6</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.7</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -649,53 +646,59 @@
                                 ))}
                             </div>
                             
-                            {/* 🌟 電腦版表格 (md:table) */}
-                            <div className="hidden md:block bg-white rounded-xl shadow overflow-hidden">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b"><tr><th className="p-3 w-10"></th><th className="p-3">單號</th><th className="p-3">狀態</th><th className="p-3">客戶</th><th className="p-3">類型</th><th className="p-3">明細</th></tr></thead>
-                                    <tbody className="divide-y">{filteredOrders.map(o=>(<tr key={o.orderId} onClick={()=>setSelectedOrder(o)} className="hover:bg-gray-50 cursor-pointer"><td className="p-3" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}}/></td><td className="p-3 font-mono font-bold">{o.orderId}</td><td className="p-3"><StatusBadge status={o.status}/></td><td className="p-3 font-bold">{o.company}</td>
-                                    <td className="p-3 text-xs text-gray-500">
-                                        {o.orderType}
-                                        {isUrgent(o) && (
-                                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 border border-red-200">
-                                                <UI.Clock size={10} className="mr-1"/> 近期交貨
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="p-3"><button className="text-xs border px-2 py-1 rounded">查看</button></td></tr>))}</tbody>
-                                </table>
-                            </div>
-
-                            {/* 🌟 手機版卡片列表 (md:hidden) */}
-                            <div className="block md:hidden space-y-3">
-                                {filteredOrders.map(o => (
-                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:bg-gray-50 transition-colors">
+                            {/* 🌟 V17.7 統一卡片顯示 (Grid Layout) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {filteredOrders.map(o => {
+                                    // 預覽前 3 個品項
+                                    const previewItems = Utils.parseItemsStr(o.items);
+                                    const showItems = previewItems.slice(0, 3);
+                                    const moreCount = previewItems.length - 3;
+                                    
+                                    return (
+                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''}`}>
+                                        {/* Header: ID & Status */}
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-3">
-                                                <input type="checkbox" checked={selectedIds.has(o.orderId)} onClick={e=>e.stopPropagation()} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}} className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500" />
+                                            <div className="flex items-center gap-3" onClick={e=>e.stopPropagation()}>
+                                                <input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}} className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer" />
                                                 <span className="font-mono font-bold text-gray-500 text-sm">#{o.orderId}</span>
                                             </div>
                                             <StatusBadge status={o.status} />
                                         </div>
+                                        
+                                        {/* Main: Company */}
                                         <div>
-                                            <h3 className="font-bold text-gray-900 text-lg truncate max-w-[280px] leading-tight">{o.company}</h3>
-                                            <div className="flex items-center gap-2 mt-1">
+                                            <h3 className="font-bold text-gray-900 text-lg truncate leading-tight mb-1">{o.company}</h3>
+                                            <div className="flex items-center gap-2">
                                                 <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{o.orderType}</span>
                                                 {isUrgent(o) && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">急件</span>}
                                             </div>
                                         </div>
-                                        <div className="flex justify-between items-end pt-2 border-t border-gray-50 mt-1">
+
+                                        {/* 🌟 V17.7 新增: 品項預覽區塊 */}
+                                        <div className="bg-gray-50 rounded-lg p-2 text-xs space-y-1 border border-gray-100">
+                                            {showItems.map((it, i) => (
+                                                <div key={i} className="flex justify-between text-gray-600">
+                                                    <span className="truncate pr-2 font-medium">{it.name}</span>
+                                                    <span className="font-mono font-bold text-gray-800 shrink-0">x {it.qty}{it.unit}</span>
+                                                </div>
+                                            ))}
+                                            {moreCount > 0 && <div className="text-center text-[10px] text-gray-400 font-bold mt-1">...還有 {moreCount} 項</div>}
+                                        </div>
+
+                                        {/* Footer: Info & Action */}
+                                        <div className="flex justify-between items-end pt-2 border-t border-gray-50 mt-auto">
                                             <div className="text-xs text-gray-400 space-y-0.5">
                                                 <div className="flex items-center gap-1"><UI.User size={12}/> {o.contactName || '未填寫'}</div>
                                                 <div className="flex items-center gap-1"><UI.Clock size={12}/> {Utils.formatDateShort(o.timestamp)}</div>
                                             </div>
-                                            <button className="px-4 py-2 bg-white text-xs font-bold text-gray-600 rounded-lg border shadow-sm flex items-center gap-1">
-                                                查看詳情 <UI.Link size={12}/>
+                                            <button className="px-3 py-1.5 bg-white text-xs font-bold text-gray-600 rounded-lg border shadow-sm hover:bg-gray-50 transition-colors">
+                                                查看
                                             </button>
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
+
                         </div>
                         {selectedIds.size>0 && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-xl flex gap-4 border z-20"><span className="font-bold">{selectedIds.size} selected</span><button onClick={()=>handleStatusUpdate(null,'已確認庫存')} className="text-teal-600 font-bold">確認庫存</button><button onClick={()=>handleStatusUpdate(null,'已排單出貨')} className="text-blue-600 font-bold">排單出貨</button></div>}
                     </div>
