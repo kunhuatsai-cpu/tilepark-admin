@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tile Park Admin System - V17.9</title>
+
+    <!-- 🌟 iOS / Android 桌面圖示設定 -->
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
+    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
+    
+    <!-- 🌟 Web App 全螢幕設定 (讓它看起來像原生 App) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tile Park Admin">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -375,7 +384,7 @@
           // 🌟 2. 通知傳送函式
           const sendBrowserNotification = (title, body) => {
               if ('Notification' in window && Notification.permission === 'granted') {
-                  new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041888.png' });
+                  new Notification(title, { body, icon: 'https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2' });
               }
           };
 
@@ -662,30 +671,10 @@
               <main className="flex-1 flex flex-col min-h-0 relative bg-gray-100">
                 {currentView === 'orders' && (
                     <div className="flex flex-col h-full">
-                        {/* 🌟 V17.8 更新：新增訂單搜尋列 */}
-                        <header className="flex flex-col md:flex-row justify-between items-center p-4 bg-white border-b shadow-sm flex-none gap-4">
-                            <div className="flex items-center justify-between w-full md:w-auto">
-                                <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
-                                <button onClick={fetchAllData} disabled={loading} className={`md:hidden p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''}/></button>
-                            </div>
-                            <div className="relative w-full md:max-w-md">
-                                <UI.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                <input 
-                                    type="text" 
-                                    placeholder="搜尋單號 / 公司名稱..." 
-                                    className="w-full pl-10 pr-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold text-gray-700 transition-all" 
-                                    value={searchTerm} 
-                                    onChange={e=>setSearchTerm(e.target.value)} 
-                                />
-                                {searchTerm && (
-                                    <button onClick={()=>setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                        <UI.Close size={16}/>
-                                    </button>
-                                )}
-                            </div>
-                            <button onClick={fetchAllData} disabled={loading} className={`hidden md:block p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''}/></button>
+                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
+                            <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
+                            <button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''}/></button>
                         </header>
-                        
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0">
                             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
                                 {tabs.map(tab => (
@@ -746,6 +735,7 @@
                                     </div>
                                 )})}
                             </div>
+
                         </div>
                         {selectedIds.size>0 && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-xl flex gap-4 border z-20"><span className="font-bold">{selectedIds.size} selected</span><button onClick={()=>handleStatusUpdate(null,'已確認庫存')} className="text-teal-600 font-bold">確認庫存</button><button onClick={()=>handleStatusUpdate(null,'已排單出貨')} className="text-blue-600 font-bold">排單出貨</button></div>}
                     </div>
