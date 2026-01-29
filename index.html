@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V17.11</title>
+    <title>Tile Park Admin System - V17.13</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -35,6 +35,15 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .loading-text { font-family: sans-serif; font-weight: bold; font-size: 14px; letter-spacing: 1px; color: #64748b; }
         
+        /* 重新載入按鈕樣式 */
+        #reload-btn {
+            display: none; margin-top: 20px; padding: 10px 20px; 
+            border: 1px solid #cbd5e1; background: white; border-radius: 8px; 
+            color: #475569; font-size: 13px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        #reload-btn:active { background: #f1f5f9; transform: scale(0.98); }
+
         /* React App 樣式 */
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -51,11 +60,12 @@
 </head>
 <body>
     <div id="root">
-        <!-- 🌟 靜態載入畫面 (會在 JS 下載前就顯示) -->
+        <!-- 🌟 靜態載入畫面 -->
         <div id="loader-screen">
             <div class="spinner"></div>
             <div class="loading-text">TILE PARK SYSTEM...</div>
-            <div id="slow-network-msg" style="display:none; margin-top: 10px; font-size: 12px; color: #999;">網路連線較慢，請稍候...</div>
+            <div id="slow-network-msg" style="display:none; margin-top: 10px; font-size: 12px; color: #94a3b8;">網路連線較慢，請稍候...</div>
+            <button id="reload-btn" onclick="window.location.reload()">🔄 重新載入頁面</button>
         </div>
     </div>
 
@@ -70,7 +80,11 @@
         setTimeout(function() {
             var msg = document.getElementById('slow-network-msg');
             if (msg) msg.style.display = 'block';
-        }, 5000); // 5秒還沒載入完就顯示提示
+        }, 5000);
+        setTimeout(function() {
+            var btn = document.getElementById('reload-btn');
+            if (btn) btn.style.display = 'block';
+        }, 15000);
     </script>
 
     <script type="text/babel">
@@ -93,6 +107,7 @@
                     return str.split('\n').filter(l => l.trim() !== "").map(line => {
                         let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
                         s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
+                        // 使用 V17.4 的貪婪模式正則
                         const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
                         if (match && match[1] && match[2]) {
                             return { name: match[1].trim(), qty: match[2].trim(), unit: (match[3]||'').trim() };
@@ -240,6 +255,7 @@
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
               }, {});
+              // 🌟 恢復過濾：隱藏 0 庫存的匹配項
               return Object.values(groups).filter(g => g.total > 0);
           };
 
@@ -284,7 +300,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.11</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.13</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -501,7 +517,7 @@
                   }
               });
 
-              const searchTerms = invSearchText.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+              const searchTerms = invSearchText.split(/\s+/).filter(t => t.trim() !== "").map(t => Utils.cleanFuzzy(t));
               const minQty = parseFloat(invSearchQty);
               const hasMinQty = !isNaN(minQty);
               const hasSearch = searchTerms.length > 0 || hasMinQty;
@@ -549,13 +565,12 @@
                   let matchText = true;
                   let matchQty = true;
                   if (searchTerms.length > 0) {
+                      const cId = Utils.cleanFuzzy(group.id);
+                      const cName = Utils.cleanFuzzy(group.name);
+                      const fullStr = cId + cName;
+                      
                       matchText = searchTerms.every(term => {
-                          const cId = Utils.cleanFuzzy(group.id);
-                          const cName = Utils.cleanFuzzy(group.name);
-                          const inId = cId.includes(term);
-                          const inName = cName.includes(term);
-                          const inBatch = group.batches.some(b => Utils.cleanFuzzy(b.lot).includes(term));
-                          return inId || inName || inBatch;
+                          return fullStr.includes(term);
                       });
                   }
                   if (hasMinQty) {
@@ -606,6 +621,7 @@
               }
           };
 
+          // 🌟 處理盤點回報
           const handleReportStocktake = async (data) => {
               setStocktakeTarget(null); 
               const success = await sendCommand({ action: 'addStocktake', ...data });
@@ -617,6 +633,7 @@
               }
           };
 
+          // 🌟 處理盤點結案
           const handleResolveStocktake = async (item) => {
               if(!confirm("確認已在 ERP 修正此庫存？")) return;
               const success = await sendCommand({ action: 'resolveStocktake', productId: item.productId, batch: item.batch, timestamp: item.timestamp });
@@ -647,6 +664,7 @@
             );
           }
 
+          // Urgent Logic
           const isUrgent = (order) => {
               if (!Utils.safeStr(order.orderType).includes('保留')) return false;
               if (!order.deliveryDate) return false;
@@ -670,7 +688,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.11</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.13</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
