@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin - Futures V17.15</title>
+    <title>Tile Park Admin - Clean V17.16</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -100,28 +100,47 @@
             cleanFuzzy: (v) => { return Utils.safeStr(v).normalize('NFKC').toLowerCase().replace(/[^\w\u4e00-\u9fa5]/g, ''); },
             formatBatch: (v) => { const s = Utils.safeStr(v); if (s.toUpperCase().includes('E+')) { const num = parseFloat(s); return isNaN(num) ? s : String(num); } return s; },
             formatDateShort: (dateStr) => { 
-                if(!dateStr) return '';
-                try { const d = new Date(dateStr); return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); } catch(e) { return dateStr; }
+                if(!dateStr || dateStr === 'undefined') return '';
+                try { 
+                    const d = new Date(dateStr); 
+                    if(isNaN(d.getTime())) return ''; // Invalid Date check
+                    return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); 
+                } catch(e) { return ''; }
             },
             getTodayStr: () => {
-                // 取得台灣時間的 YYYY-MM-DD
                 const d = new Date();
                 const offset = d.getTimezoneOffset() * 60000;
                 const localISOTime = (new Date(d - offset)).toISOString().slice(0, 10);
                 return localISOTime;
             },
+            // 🌟 V17.16 優化版: 自動分離 [ID] 與 品名
             parseItemsStr: (str) => {
                 if(!str) return [];
                 try {
                     return str.split('\n').filter(l => l.trim() !== "").map(line => {
                         let s = Utils.safeStr(line).replace(/\u3000/g, ' ').replace(/^["']|["']$/g, '').trim();
-                        s = s.replace(/^(\d{1,3}[\.\s])\s*/, '');
-                        // 使用 V17.4 的貪婪模式正則
-                        const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
-                        if (match && match[1] && match[2]) {
-                            return { name: match[1].trim(), qty: match[2].trim(), unit: (match[3]||'').trim() };
+                        s = s.replace(/^(\d{1,3}[\.\s])\s*/, ''); // 移除 "1. " 這種序號
+
+                        // 1. 嘗試提取開頭的 [ID]
+                        let productId = '';
+                        const idMatch = s.match(/^\[([^\]]+)\]/);
+                        if (idMatch) {
+                            productId = idMatch[1];
+                            s = s.substring(idMatch[0].length).trim(); // 移除 [ID] 後的字串
                         }
-                        return { name: s, qty: '?', unit: '' };
+
+                        // 2. 解析數量 (x 數量)
+                        const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
+                        
+                        if (match && match[2]) {
+                            return { 
+                                id: productId, // 新增 ID 欄位
+                                name: (match[1]||s).trim(), 
+                                qty: match[2].trim(), 
+                                unit: (match[3]||'').trim() 
+                            };
+                        }
+                        return { id: productId, name: s, qty: '?', unit: '' };
                     });
                 } catch(e) { return []; }
             }
@@ -301,7 +320,8 @@
                 const itemsString = editableItems.map(i => {
                     const unitPart = i.unit ? i.unit : '';
                     const notePart = i.note ? ` ${i.note}` : ''; 
-                    return `${i.name} x ${i.currentQty}${unitPart}${notePart}`;
+                    const idPart = i.id ? `[${i.id}] ` : ''; // 補回 ID
+                    return `${idPart}${i.name} x ${i.currentQty}${unitPart}${notePart}`;
                 }).join('\n');
                 const success = await onUpdateDetails(order.orderId, { orderType, internalNote, factoryEta, deliveryDate, siteContact, sitePhone, address, items: itemsString, trackingNumber, shippingMethod, receiptUrl });
                 if (success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000); }
@@ -312,7 +332,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${isShipped ? 'bg-blue-600' : isFutures ? 'bg-purple-600' : isStockConfirmed ? 'bg-teal-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.15</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.16</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -747,7 +767,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.15</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.16</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -828,16 +848,29 @@
                                     const isNew = !o.status;
                                     const isFutures = o.status === '期貨訂單';
                                     
+                                    // 🌟 點擊整個卡片選取，點選按鈕查看詳情
+                                    const isSelected = selectedIds.has(o.orderId);
+
                                     return (
-                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''} ${isNew ? 'ring-1 ring-red-100' : ''} ${isFutures ? 'border-purple-200 bg-purple-50/20' : ''}`}>
+                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer relative group ${isSelected ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-gray-100 hover:border-orange-300'} ${isNew ? 'ring-1 ring-red-100' : ''} ${isFutures ? 'border-purple-200 bg-purple-50/20' : ''}`}>
+                                        
                                         {/* 🔥 新單 Tag */}
                                         {isNew && <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse-fast"><UI.Fire size={10}/> NEW</div>}
                                         
-                                        {/* Header: ID & Status */}
+                                        {/* Header: ID & Status (點擊 ID 可切換選取狀態) */}
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-3" onClick={e=>e.stopPropagation()}>
-                                                <input type="checkbox" checked={selectedIds.has(o.orderId)} onChange={()=>{const n=new Set(selectedIds);n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);setSelectedIds(n)}} className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer" />
-                                                <span className="font-mono font-bold text-gray-500 text-sm">#{o.orderId}</span>
+                                            <div 
+                                                className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${isSelected ? 'bg-orange-200 text-orange-800' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // 阻止冒泡到卡片點擊
+                                                    const n=new Set(selectedIds);
+                                                    n.has(o.orderId)?n.delete(o.orderId):n.add(o.orderId);
+                                                    setSelectedIds(n);
+                                                }}
+                                            >
+                                                {/* 🌟 隱藏原本醜醜的 checkbox，改用 ID 點擊切換狀態 */}
+                                                <span className="font-mono font-bold text-sm">#{o.orderId}</span>
+                                                {isSelected && <UI.Check size={14} className="text-orange-600"/>}
                                             </div>
                                             <StatusBadge status={o.status} />
                                         </div>
@@ -851,12 +884,15 @@
                                             </div>
                                         </div>
 
-                                        {/* V17.7 新增: 品項預覽區塊 */}
-                                        <div className="bg-gray-50 rounded-lg p-2 text-xs space-y-1 border border-gray-100">
+                                        {/* V17.16 優化: 品項預覽區塊 (只顯示 ID + 品名 + 數量) */}
+                                        <div className="bg-gray-50 rounded-lg p-2 text-xs space-y-1.5 border border-gray-100">
                                             {showItems.map((it, i) => (
-                                                <div key={i} className="flex justify-between text-gray-600">
-                                                    <span className="truncate pr-2 font-medium">{it.name}</span>
-                                                    <span className="font-mono font-bold text-gray-800 shrink-0">x {it.qty}{it.unit}</span>
+                                                <div key={i} className="flex justify-between items-center text-gray-600">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        {it.id && <span className="shrink-0 bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">{it.id}</span>}
+                                                        <span className="truncate font-medium">{it.name}</span>
+                                                    </div>
+                                                    <span className="font-mono font-bold text-gray-800 shrink-0 ml-2">x {it.qty}{it.unit}</span>
                                                 </div>
                                             ))}
                                             {moreCount > 0 && <div className="text-center text-[10px] text-gray-400 font-bold mt-1">...還有 {moreCount} 項</div>}
@@ -868,8 +904,9 @@
                                                 <div className="flex items-center gap-1"><UI.User size={12}/> {o.contactName || '未填寫'}</div>
                                                 <div className="flex items-center gap-1"><UI.Clock size={12}/> {Utils.formatDateShort(o.timestamp)}</div>
                                             </div>
+                                            {/* 點擊整個卡片即可查看，這裡保留按鈕是為了視覺引導，但其實整個卡片都可點 */}
                                             <button className="px-3 py-1.5 bg-white text-xs font-bold text-gray-600 rounded-lg border shadow-sm hover:bg-gray-50 transition-colors">
-                                                查看
+                                                查看詳情
                                             </button>
                                         </div>
                                     </div>
