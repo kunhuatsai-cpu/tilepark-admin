@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin - Smart Clean V17.20</title>
+    <title>Tile Park Admin - Stable V17.22</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -103,7 +103,7 @@
                 if(!dateStr || dateStr === 'undefined') return '';
                 try { 
                     const d = new Date(dateStr); 
-                    if(isNaN(d.getTime())) return ''; // Invalid Date check
+                    if(isNaN(d.getTime())) return ''; 
                     return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); 
                 } catch(e) { return ''; }
             },
@@ -113,7 +113,6 @@
                 const localISOTime = (new Date(d - offset)).toISOString().slice(0, 10);
                 return localISOTime;
             },
-            // 🌟 V17.20 優化版: 智慧判斷品名保留邏輯
             parseItemsStr: (str) => {
                 if(!str) return [];
                 try {
@@ -143,41 +142,39 @@
                         const rawName = name; 
 
                         // 3. 🌟 智慧清洗流程
-                        // A. 先去除尺寸規格與括號 (這是大家都要洗掉的)
                         let cleanName = name;
-                        // 去除尺寸規格 (ex: 14.5x14.5cm, 60x240mm)
-                        cleanName = cleanName.replace(/(\d+(\.\d+)?)\s*[xX\*]\s*(\d+(\.\d+)?)(\s*[cCmMgG][mM])?/g, '');
+                        
+                        // 修正：支援 3D 尺寸 (長x寬x高)，例如 20x145x8.5mm
+                        // 使用更嚴謹的正則表達式
+                        cleanName = cleanName.replace(/(\d+(\.\d+)?)\s*[xX\*]\s*(\d+(\.\d+)?)(?:\s*[xX\*]\s*(\d+(\.\d+)?))?(\s*[cCmMgG][mM])?/g, '');
+                        
                         // 去除括號內容
                         cleanName = cleanName.replace(/\([^\)]*\)/g, '').replace(/（[^）]*）/g, ''); 
                         // 清理殘留符號
                         cleanName = cleanName.replace(/^[-\s]+/, '').replace(/[xX\*]+$/, '').replace(/\s{2,}/g, ' ').trim();
 
                         // B. 判斷是否移除 ID (智慧判斷)
-                        // 如果移除 ID 後，名字變空了 -> 代表這產品名稱本身就是 ID (如 ZLD-100RE)，這時不要移除 ID
-                        // 如果移除 ID 後，還有剩字 -> 代表有別的品名 (如 BYOBU BYB-1 -> BYOBU)，這時移除 ID
                         if (productId) {
                             const cleanID = Utils.cleanFuzzy(productId);
                             const currentCleanName = Utils.cleanFuzzy(cleanName);
                             
-                            // 嘗試模擬移除 ID
                             let nameWithoutID = cleanName;
                             if (currentCleanName.startsWith(cleanID)) {
                                 const fuzzyRegex = new RegExp("^" + productId.split('').join('.?') + "[-_\\s]*", "i");
                                 nameWithoutID = cleanName.replace(fuzzyRegex, '').trim();
                             }
 
-                            // 關鍵決策：如果剩下字串太短或無意義，就保留含 ID 的名稱；否則使用移除 ID 後的名稱
                             if (nameWithoutID.length > 1 || /[\u4e00-\u9fa5]/.test(nameWithoutID)) {
                                 cleanName = nameWithoutID;
                             }
                         }
 
-                        // C. 最終防呆：如果還是洗壞了，退回 rawName (至少比 X 好)
+                        // C. 最終防呆
                         if (cleanName.length < 1) cleanName = rawName;
 
                         return { 
                             id: productId, 
-                            name: cleanName, // 智慧清洗後的品名
+                            name: cleanName, 
                             rawName: rawName, 
                             originalName: originalLine, 
                             qty: qty, 
@@ -201,6 +198,19 @@
                     };
                 }; reader.onerror=reject;
             });
+        };
+
+        // 🌟 獨立的輔助函式：將匹配到的庫存分組
+        const groupMatches = (rawMatches) => {
+            const groups = rawMatches.reduce((acc, curr) => {
+                const key = `${curr.id}-${curr.name}`;
+                const qty = Utils.parseQty(curr.qty);
+                if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
+                acc[key].total += qty;
+                if (qty > 0) acc[key].lots.push(curr);
+                return acc;
+            }, {});
+            return Object.values(groups);
         };
 
         const IconWrap = ({ d, size = 18, className = "" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{d}</svg>);
@@ -342,19 +352,6 @@
               return groupMatches(matches).filter(g => g.total > 0);
           };
 
-          // 輔助函式：將匹配到的庫存分組
-          const groupMatches = (rawMatches) => {
-              const groups = rawMatches.reduce((acc, curr) => {
-                const key = `${curr.id}-${curr.name}`;
-                const qty = Utils.parseQty(curr.qty);
-                if (!acc[key]) acc[key] = { id: curr.id, name: curr.name, spec: curr.spec, total: 0, lots: [] };
-                acc[key].total += qty;
-                if (qty > 0) acc[key].lots.push(curr);
-                return acc;
-              }, {});
-              return Object.values(groups);
-          }
-
           const handleUpdateItemQty = (index, value) => {
               const updated = [...editableItems]; updated[index].currentQty = value; setEditableItems(updated);
           };
@@ -395,7 +392,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${isShipped ? 'bg-blue-600' : isFutures ? 'bg-purple-600' : isStockConfirmed ? 'bg-teal-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.20</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.22</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -831,7 +828,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.20</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.22</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
