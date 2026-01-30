@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin System - V17.13</title>
+    <title>Tile Park Admin - Smart V17.14</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -56,6 +56,8 @@
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-spin-fast { animation: spin 0.7s linear infinite; }
+        .animate-pulse-fast { animation: pulseFast 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulseFast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
@@ -100,6 +102,13 @@
             formatDateShort: (dateStr) => { 
                 if(!dateStr) return '';
                 try { const d = new Date(dateStr); return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); } catch(e) { return dateStr; }
+            },
+            getTodayStr: () => {
+                // 取得台灣時間的 YYYY-MM-DD
+                const d = new Date();
+                const offset = d.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(d - offset)).toISOString().slice(0, 10);
+                return localISOTime;
             },
             parseItemsStr: (str) => {
                 if(!str) return [];
@@ -156,7 +165,8 @@
             Link: (p)=><IconWrap {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>}/>,
             Camera: (p)=><IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}/>,
             Audit: (p)=><IconWrap {...p} d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>}/>,
-            Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>
+            Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>,
+            Fire: (p)=><IconWrap {...p} d={<><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.1 1-2.2 2.5-3.2.5 1 .5 2 .5 3.3z"/></>}/>
         };
 
         const StatusBadge = ({ status }) => {
@@ -255,7 +265,6 @@
                 if (qty > 0) acc[key].lots.push(curr);
                 return acc;
               }, {});
-              // 🌟 恢復過濾：隱藏 0 庫存的匹配項
               return Object.values(groups).filter(g => g.total > 0);
           };
 
@@ -294,13 +303,11 @@
               } finally { setIsSavingDetails(false); }
           };
 
-          const isHoldOrder = (orderType || '').includes('保留');
-
           return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.13</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.14</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -375,9 +382,9 @@
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-sans">
                                                                 {group.lots.length > 0 ? group.lots.map((lot, lIdx) => (
                                                                     <div key={lIdx} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col hover:border-teal-400 transition-colors group font-sans">
-                                                                                <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 group-hover:text-teal-500 tracking-wider">Batch 批號</span>
-                                                                                <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{Utils.formatBatch(lot.lot) || "無標註"}</span>
-                                                                                <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-end"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">剩餘數量</span><span className="font-black text-[15px] text-teal-600 font-mono leading-none">{lot.qty}</span></div>
+                                                                                    <span className="text-[9px] text-gray-400 font-bold uppercase mb-1 group-hover:text-teal-500 tracking-wider">Batch 批號</span>
+                                                                                    <span className="font-mono text-sm font-black text-[#c25e00] break-all leading-tight mb-2 font-sans">{Utils.formatBatch(lot.lot) || "無標註"}</span>
+                                                                                    <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-end"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">剩餘數量</span><span className="font-black text-[15px] text-teal-600 font-mono leading-none">{lot.qty}</span></div>
                                                                     </div>
                                                                 )) : <div className="col-span-full text-center p-3 text-xs text-gray-400 bg-gray-50 rounded-lg">此產品目前無任何有效批號庫存 (>0)</div>}
                                                             </div>
@@ -420,7 +427,7 @@
           const [loading, setLoading] = useState(false);
           const [apiError, setApiError] = useState(null);
           const [lastUpdated, setLastUpdated] = useState("");
-          const [activeTab, setActiveTab] = useState('all');
+          const [activeTab, setActiveTab] = useState('received'); // 預設改為 received
           
           const [currentView, setCurrentView] = useState('orders'); 
           const [invSearchText, setInvSearchText] = useState("");
@@ -447,14 +454,26 @@
               setOrders(newOrders);
               setInventory(result.inventory || []);
 
-              const currentOrderCount = newOrders.length;
+              // 智慧跳轉邏輯：僅在第一次載入時執行
               if (isFirstLoadRef.current) {
-                  lastOrderCountRef.current = currentOrderCount;
+                  const newCount = newOrders.filter(o => !o.status).length;
+                  const todayStr = Utils.getTodayStr();
+                  const todayCount = newOrders.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr).length;
+
+                  if (newCount > 0) {
+                      setActiveTab('received');
+                  } else if (todayCount > 0) {
+                      setActiveTab('today');
+                  } else {
+                      setActiveTab('all');
+                  }
+                  
+                  lastOrderCountRef.current = newOrders.length;
                   isFirstLoadRef.current = false;
-              } else if (currentOrderCount > lastOrderCountRef.current) {
-                  const diff = currentOrderCount - lastOrderCountRef.current;
+              } else if (newOrders.length > lastOrderCountRef.current) {
+                  const diff = newOrders.length - lastOrderCountRef.current;
                   sendBrowserNotification("🔔 新訂單通知", `收到 ${diff} 筆 Tile Park 新訂單，請盡快處理！`);
-                  lastOrderCountRef.current = currentOrderCount;
+                  lastOrderCountRef.current = newOrders.length;
               }
 
               const resLog = await fetch(`${API_URL}?action=getStocktakeLog&t=${Date.now()}`, { redirect: 'follow' });
@@ -478,14 +497,24 @@
 
           useEffect(() => {
             let res = orders;
+            const todayStr = Utils.getTodayStr();
+
             if (activeTab === 'received') res = res.filter(o => !o.status);
+            else if (activeTab === 'today') res = res.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr);
             else if (activeTab === 'hold') res = res.filter(o => Utils.safeStr(o.orderType).includes('保留'));
             else if (activeTab === 'confirmed') res = res.filter(o => o.status === '已確認庫存');
             else if (activeTab === 'shipped') res = res.filter(o => o.status === '已排單出貨');
+            
             if (searchTerm) {
               const t = searchTerm.toLowerCase();
               res = res.filter(o => Utils.safeStr(o.company).toLowerCase().includes(t) || Utils.safeStr(o.orderId).toLowerCase().includes(t));
             }
+            // Sort: 讓未處理的單總是排在最上面
+            res.sort((a, b) => {
+                if (!a.status && b.status) return -1;
+                if (a.status && !b.status) return 1;
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
             setFilteredOrders(res);
           }, [searchTerm, orders, activeTab]);
 
@@ -526,7 +555,7 @@
                   const qty = Utils.parseQty(curr.qty);
                   const key = `${curr.id}_${curr.name}`;
                   if (!acc[key]) {
-                      const cleanId = Utils.cleanFuzzy(curr.id);     
+                      const cleanId = Utils.cleanFuzzy(curr.id);       
                       const cleanName = Utils.cleanFuzzy(curr.name); 
                       let totalRes = 0;
                       let detailsRes = [];
@@ -677,9 +706,14 @@
               return delivery <= limit;
           };
 
+          const todayStr = Utils.getTodayStr();
+          const newOrdersCount = orders.filter(o => !o.status).length;
+          const todayOrdersCount = orders.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr).length;
+
           const tabs = [
+              { id: 'received', label: '🔥 待處理', count: newOrdersCount },
+              { id: 'today', label: '🚚 今日出貨', count: todayOrdersCount },
               { id: 'all', label: '全部', count: orders.length },
-              { id: 'received', label: '待處理', count: orders.filter(o => !o.status).length },
               { id: 'hold', label: '保留單', count: orders.filter(o => Utils.safeStr(o.orderType).includes('保留')).length },
               { id: 'confirmed', label: '已確認', count: orders.filter(o => o.status === '已確認庫存').length },
               { id: 'shipped', label: '已出貨', count: orders.filter(o => o.status === '已排單出貨').length },
@@ -688,7 +722,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.13</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.14</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -721,22 +755,53 @@
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0">
                             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                                {tabs.map(tab => (
-                                    <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setSelectedIds(new Set())}} className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${activeTab===tab.id?'bg-orange-600 text-white':'bg-white text-gray-600'}`}>
-                                        {tab.label} <span className="ml-1 opacity-80">({tab.count})</span>
-                                    </button>
-                                ))}
+                                {tabs.map(tab => {
+                                    let activeClass = 'bg-white text-gray-600 border';
+                                    let badgeColor = 'bg-gray-100 text-gray-500';
+
+                                    if (activeTab === tab.id) {
+                                        if (tab.id === 'received') {
+                                            activeClass = 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-100';
+                                            badgeColor = 'bg-white/20 text-white';
+                                        } else if (tab.id === 'today') {
+                                            activeClass = 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-100';
+                                            badgeColor = 'bg-white/20 text-white';
+                                        } else {
+                                            activeClass = 'bg-orange-600 text-white border-orange-700 shadow-md';
+                                            badgeColor = 'bg-white/20 text-white';
+                                        }
+                                    } else {
+                                        // 非選中狀態但有數量時的提示
+                                        if (tab.id === 'received' && tab.count > 0) {
+                                            activeClass = 'bg-white text-red-600 border-red-200 animate-pulse';
+                                            badgeColor = 'bg-red-100 text-red-600';
+                                        } else if (tab.id === 'today' && tab.count > 0) {
+                                            activeClass = 'bg-white text-blue-600 border-blue-200';
+                                            badgeColor = 'bg-blue-100 text-blue-600';
+                                        }
+                                    }
+
+                                    return (
+                                        <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setSelectedIds(new Set())}} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all ${activeClass}`}>
+                                            {tab.label}
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] min-w-[1.5em] text-center ${badgeColor}`}>{tab.count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                             
-                            {/* V17.7 統一卡片顯示 (Grid Layout) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 {filteredOrders.map(o => {
                                     const previewItems = Utils.parseItemsStr(o.items);
                                     const showItems = previewItems.slice(0, 3);
                                     const moreCount = previewItems.length - 3;
+                                    const isNew = !o.status;
                                     
                                     return (
-                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''}`}>
+                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''} ${isNew ? 'ring-1 ring-red-100' : ''}`}>
+                                        {/* 🔥 新單 Tag */}
+                                        {isNew && <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse-fast"><UI.Fire size={10}/> NEW</div>}
+                                        
                                         {/* Header: ID & Status */}
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-3" onClick={e=>e.stopPropagation()}>
@@ -853,7 +918,7 @@
 
                 {currentView === 'stocktake' && (
                     <div className="flex flex-col h-full">
-                         <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
+                          <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><UI.Audit className="text-purple-600"/> 盤點待辦事項 (待處理)</h2>
                             <button onClick={fetchAllData} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><UI.Refresh size={18}/></button>
                         </header>
