@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin - Smart V17.14</title>
+    <title>Tile Park Admin - Futures V17.15</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -166,13 +166,15 @@
             Camera: (p)=><IconWrap {...p} d={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>}/>,
             Audit: (p)=><IconWrap {...p} d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>}/>,
             Edit: (p)=><IconWrap {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>,
-            Fire: (p)=><IconWrap {...p} d={<><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.1 1-2.2 2.5-3.2.5 1 .5 2 .5 3.3z"/></>}/>
+            Fire: (p)=><IconWrap {...p} d={<><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.1 1-2.2 2.5-3.2.5 1 .5 2 .5 3.3z"/></>}/>,
+            Time: (p)=><IconWrap {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}/>
         };
 
         const StatusBadge = ({ status }) => {
           let color = "bg-green-100 text-green-800 border-green-200";
           if (status === '已確認庫存') color = "bg-teal-100 text-teal-800 border-teal-200";
           if (status === '已排單出貨') color = "bg-blue-100 text-blue-800 border-blue-200";
+          if (status === '期貨訂單') color = "bg-purple-100 text-purple-800 border-purple-200";
           return <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${color} whitespace-nowrap`}>{status || '已接收'}</span>;
         };
 
@@ -217,8 +219,11 @@
 
         const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onUpdateDetails, onDelete, isProcessing }) => {
           if (!order) return null;
-          const isStockConfirmed = order.status === '已確認庫存' || order.status === '已排單出貨';
+          // Status Logic
+          const isFutures = order.status === '期貨訂單';
+          const isStockConfirmed = order.status === '已確認庫存';
           const isShipped = order.status === '已排單出貨';
+
           const [orderType, setOrderType] = useState(Utils.safeStr(order.orderType));
           const [internalNote, setInternalNote] = useState(Utils.safeStr(order.internalNote));
           const [factoryEta, setFactoryEta] = useState(Utils.safeStr(order.factoryEta));
@@ -306,16 +311,37 @@
           return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
-                <div className={`p-4 flex justify-between items-center shrink-0 text-white ${order.status === '已排單出貨' ? 'bg-blue-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.14</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                <div className={`p-4 flex justify-between items-center shrink-0 text-white ${isShipped ? 'bg-blue-600' : isFutures ? 'bg-purple-600' : isStockConfirmed ? 'bg-teal-600' : 'bg-[#222]'}`}>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.15</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
                   <ErrorBoundary onClose={onClose}>
-                      <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row gap-6">
-                            <label className="flex-1 flex items-center gap-4 cursor-pointer select-none"><div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all ${isStockConfirmed ? 'bg-teal-500 border-teal-500 shadow-lg' : 'bg-white border-gray-200'}`}>{isStockConfirmed ? <UI.Check size={28} className="text-white" /> : <UI.DB size={24} className="text-gray-300" />}</div><div className="flex flex-col"><span className={`font-bold ${isStockConfirmed ? 'text-teal-700' : 'text-gray-700'}`}>已確認庫存</span><span className="text-xs text-gray-400">核對現場存貨與 A06REPORT</span></div><input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => onUpdateStatus([order.orderId], isStockConfirmed ? '' : '已確認庫存')} disabled={isProcessing} /></label>
-                            <div className="hidden sm:block w-px bg-gray-100 h-14 self-center"></div>
-                            <label className="flex-1 flex items-center gap-4 cursor-pointer select-none"><div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all ${isShipped ? 'bg-blue-500 border-blue-500 shadow-lg' : 'bg-white border-gray-200'}`}>{isShipped ? <UI.Check size={28} className="text-white" /> : <UI.Truck size={24} className="text-gray-300" />}</div><div className="flex flex-col"><span className={`font-bold ${isShipped ? 'text-blue-700' : 'text-gray-700'}`}>已排單出貨</span><span className="text-xs text-gray-400">填寫下方貨運資訊供客戶查詢</span></div><input type="checkbox" className="hidden" checked={isShipped} onChange={() => onUpdateStatus([order.orderId], isShipped ? '已確認庫存' : '已排單出貨')} disabled={isProcessing} /></label>
+                      {/* 🌟 狀態切換區塊 (三欄式互斥) */}
+                      <div className="bg-white border rounded-xl p-4 mb-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* 期貨選項 */}
+                            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${isFutures ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-100 hover:border-gray-300 text-gray-500'}`}>
+                                <div className="mb-2">{isFutures ? <UI.Check size={28}/> : <UI.Time size={28} className="opacity-30"/>}</div>
+                                <div className="font-bold">期貨訂單</div>
+                                <div className="text-[10px] opacity-70">確認無庫存，等待入倉</div>
+                                <input type="checkbox" className="hidden" checked={isFutures} onChange={() => onUpdateStatus([order.orderId], isFutures ? '' : '期貨訂單')} disabled={isProcessing} />
+                            </label>
+
+                            {/* 庫存選項 */}
+                            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${isStockConfirmed ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-100 hover:border-gray-300 text-gray-500'}`}>
+                                <div className="mb-2">{isStockConfirmed ? <UI.Check size={28}/> : <UI.DB size={28} className="opacity-30"/>}</div>
+                                <div className="font-bold">已確認庫存</div>
+                                <div className="text-[10px] opacity-70">現貨充足，已保留</div>
+                                <input type="checkbox" className="hidden" checked={isStockConfirmed} onChange={() => onUpdateStatus([order.orderId], isStockConfirmed ? '' : '已確認庫存')} disabled={isProcessing} />
+                            </label>
+
+                            {/* 出貨選項 */}
+                            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${isShipped ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:border-gray-300 text-gray-500'}`}>
+                                <div className="mb-2">{isShipped ? <UI.Check size={28}/> : <UI.Truck size={28} className="opacity-30"/>}</div>
+                                <div className="font-bold">已排單出貨</div>
+                                <div className="text-[10px] opacity-70">安排物流出貨</div>
+                                <input type="checkbox" className="hidden" checked={isShipped} onChange={() => onUpdateStatus([order.orderId], isShipped ? '' : '已排單出貨')} disabled={isProcessing} />
+                            </label>
                       </div>
 
                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-6">
@@ -427,7 +453,7 @@
           const [loading, setLoading] = useState(false);
           const [apiError, setApiError] = useState(null);
           const [lastUpdated, setLastUpdated] = useState("");
-          const [activeTab, setActiveTab] = useState('received'); // 預設改為 received
+          const [activeTab, setActiveTab] = useState('received'); 
           
           const [currentView, setCurrentView] = useState('orders'); 
           const [invSearchText, setInvSearchText] = useState("");
@@ -454,7 +480,7 @@
               setOrders(newOrders);
               setInventory(result.inventory || []);
 
-              // 智慧跳轉邏輯：僅在第一次載入時執行
+              // 智慧跳轉邏輯
               if (isFirstLoadRef.current) {
                   const newCount = newOrders.filter(o => !o.status).length;
                   const todayStr = Utils.getTodayStr();
@@ -501,6 +527,7 @@
 
             if (activeTab === 'received') res = res.filter(o => !o.status);
             else if (activeTab === 'today') res = res.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr);
+            else if (activeTab === 'futures') res = res.filter(o => o.status === '期貨訂單');
             else if (activeTab === 'hold') res = res.filter(o => Utils.safeStr(o.orderType).includes('保留'));
             else if (activeTab === 'confirmed') res = res.filter(o => o.status === '已確認庫存');
             else if (activeTab === 'shipped') res = res.filter(o => o.status === '已排單出貨');
@@ -509,7 +536,6 @@
               const t = searchTerm.toLowerCase();
               res = res.filter(o => Utils.safeStr(o.company).toLowerCase().includes(t) || Utils.safeStr(o.orderId).toLowerCase().includes(t));
             }
-            // Sort: 讓未處理的單總是排在最上面
             res.sort((a, b) => {
                 if (!a.status && b.status) return -1;
                 if (a.status && !b.status) return 1;
@@ -650,7 +676,6 @@
               }
           };
 
-          // 🌟 處理盤點回報
           const handleReportStocktake = async (data) => {
               setStocktakeTarget(null); 
               const success = await sendCommand({ action: 'addStocktake', ...data });
@@ -662,7 +687,6 @@
               }
           };
 
-          // 🌟 處理盤點結案
           const handleResolveStocktake = async (item) => {
               if(!confirm("確認已在 ERP 修正此庫存？")) return;
               const success = await sendCommand({ action: 'resolveStocktake', productId: item.productId, batch: item.batch, timestamp: item.timestamp });
@@ -693,7 +717,6 @@
             );
           }
 
-          // Urgent Logic
           const isUrgent = (order) => {
               if (!Utils.safeStr(order.orderType).includes('保留')) return false;
               if (!order.deliveryDate) return false;
@@ -709,10 +732,12 @@
           const todayStr = Utils.getTodayStr();
           const newOrdersCount = orders.filter(o => !o.status).length;
           const todayOrdersCount = orders.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr).length;
+          const futuresCount = orders.filter(o => o.status === '期貨訂單').length;
 
           const tabs = [
               { id: 'received', label: '🔥 待處理', count: newOrdersCount },
               { id: 'today', label: '🚚 今日出貨', count: todayOrdersCount },
+              { id: 'futures', label: '⏳ 期貨', count: futuresCount },
               { id: 'all', label: '全部', count: orders.length },
               { id: 'hold', label: '保留單', count: orders.filter(o => Utils.safeStr(o.orderType).includes('保留')).length },
               { id: 'confirmed', label: '已確認', count: orders.filter(o => o.status === '已確認庫存').length },
@@ -722,7 +747,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.14</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.15</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
@@ -766,18 +791,23 @@
                                         } else if (tab.id === 'today') {
                                             activeClass = 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-100';
                                             badgeColor = 'bg-white/20 text-white';
+                                        } else if (tab.id === 'futures') {
+                                            activeClass = 'bg-purple-600 text-white border-purple-700 shadow-md ring-2 ring-purple-100';
+                                            badgeColor = 'bg-white/20 text-white';
                                         } else {
                                             activeClass = 'bg-orange-600 text-white border-orange-700 shadow-md';
                                             badgeColor = 'bg-white/20 text-white';
                                         }
                                     } else {
-                                        // 非選中狀態但有數量時的提示
                                         if (tab.id === 'received' && tab.count > 0) {
                                             activeClass = 'bg-white text-red-600 border-red-200 animate-pulse';
                                             badgeColor = 'bg-red-100 text-red-600';
                                         } else if (tab.id === 'today' && tab.count > 0) {
                                             activeClass = 'bg-white text-blue-600 border-blue-200';
                                             badgeColor = 'bg-blue-100 text-blue-600';
+                                        } else if (tab.id === 'futures' && tab.count > 0) {
+                                            activeClass = 'bg-white text-purple-600 border-purple-200';
+                                            badgeColor = 'bg-purple-100 text-purple-600';
                                         }
                                     }
 
@@ -796,9 +826,10 @@
                                     const showItems = previewItems.slice(0, 3);
                                     const moreCount = previewItems.length - 3;
                                     const isNew = !o.status;
+                                    const isFutures = o.status === '期貨訂單';
                                     
                                     return (
-                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''} ${isNew ? 'ring-1 ring-red-100' : ''}`}>
+                                    <div key={o.orderId} onClick={()=>setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer hover:border-orange-300 relative group ${selectedIds.has(o.orderId) ? 'ring-2 ring-orange-500 bg-orange-50' : ''} ${isNew ? 'ring-1 ring-red-100' : ''} ${isFutures ? 'border-purple-200 bg-purple-50/20' : ''}`}>
                                         {/* 🔥 新單 Tag */}
                                         {isNew && <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse-fast"><UI.Fire size={10}/> NEW</div>}
                                         
