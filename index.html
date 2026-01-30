@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tile Park Admin - Clean V17.16</title>
+    <title>Tile Park Admin - Clean V17.17</title>
 
     <!-- 🌟 iOS / Android 桌面圖示設定 -->
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1N9nrujoaGkFpdGhsBRgOs_WE-RgQEhU2">
@@ -113,7 +113,7 @@
                 const localISOTime = (new Date(d - offset)).toISOString().slice(0, 10);
                 return localISOTime;
             },
-            // 🌟 V17.16 優化版: 自動分離 [ID] 與 品名
+            // 🌟 V17.17 優化版: 強力去除規格、尺寸、括號內容與重複貨號
             parseItemsStr: (str) => {
                 if(!str) return [];
                 try {
@@ -130,17 +130,50 @@
                         }
 
                         // 2. 解析數量 (x 數量)
+                        let qty = '?', unit = '', name = s;
                         const match = s.match(/^(.*)[\sxX\*＊\u00d7]+([0-9,\.]+)\s*([^\[\n]*)(?:\s*\[(.*)\])?$/);
                         
                         if (match && match[2]) {
-                            return { 
-                                id: productId, // 新增 ID 欄位
-                                name: (match[1]||s).trim(), 
-                                qty: match[2].trim(), 
-                                unit: (match[3]||'').trim() 
-                            };
+                            name = (match[1]||s).trim();
+                            qty = match[2].trim();
+                            unit = (match[3]||'').trim();
                         }
-                        return { id: productId, name: s, qty: '?', unit: '' };
+
+                        // 3. 🌟 清洗品名
+                        // A. 去除重複的貨號 (模糊比對) - 如果品名開頭包含 ID，移除它
+                        if (productId) {
+                            // 移除開頭可能存在的 ID 字串 (容許 - 或 空格)
+                            const cleanID = Utils.cleanFuzzy(productId);
+                            const cleanName = Utils.cleanFuzzy(name);
+                            if (cleanName.startsWith(cleanID)) {
+                                // 嘗試正則移除
+                                const fuzzyRegex = new RegExp("^" + productId.split('').join('.?') + "[-_\\s]*", "i");
+                                name = name.replace(fuzzyRegex, '');
+                            }
+                        }
+
+                        // B. 去除尺寸規格 (ex: 14.5x14.5cm, 60x240mm, 6.0x22.7)
+                        // 匹配邏輯：數字[x*]數字[cm/mm]
+                        name = name.replace(/(\d+(\.\d+)?)\s*[xX\*]\s*(\d+(\.\d+)?)(\s*[cCmMgG][mM])?/g, '');
+                        
+                        // C. 去除括號內容 (通常規格在括號內)
+                        name = name.replace(/\([^\)]*\)/g, ''); // (...)
+                        name = name.replace(/（[^）]*）/g, ''); // 全形括號
+
+                        // D. 清理殘留符號 (ex: "MT-1 x x" -> "MT-1")
+                        name = name.replace(/^[-\s]+/, ''); // 開頭的 - 或 空格
+                        name = name.replace(/(\s+[xX*])+\s*$/, ''); // 結尾殘留的 x 
+                        name = name.replace(/\s{2,}/g, ' ').trim();
+
+                        // E. 最終防呆：如果洗到變空字串，就回退顯示 (避免完全空白)
+                        if (name.length < 1) name = (match ? match[1] : s).replace(productId, '').trim();
+
+                        return { 
+                            id: productId, 
+                            name: name, 
+                            qty: qty, 
+                            unit: unit 
+                        };
                     });
                 } catch(e) { return []; }
             }
@@ -332,7 +365,7 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in font-sans text-gray-800">
               <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] h-[95dvh] relative">
                 <div className={`p-4 flex justify-between items-center shrink-0 text-white ${isShipped ? 'bg-blue-600' : isFutures ? 'bg-purple-600' : isStockConfirmed ? 'bg-teal-600' : 'bg-[#222]'}`}>
-                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.16</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-bold opacity-70 tracking-widest font-sans">Warehouse V17.17</span><h2 className="text-xl font-bold font-mono">訂單 #{order.orderId}</h2></div>
                   <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><UI.Close size={24} /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50 flex-1 font-sans pb-20">
@@ -767,7 +800,7 @@
           return (
             <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
               <aside className="hidden md:flex w-64 bg-[#1a1a1a] text-white flex-col p-6 shrink-0 h-full">
-                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.16</span></div>
+                <div className="mb-10 font-black text-xl">TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.17</span></div>
                 <nav className="flex flex-col gap-2">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.File size={18} /> 訂單管理</button>
                     <button onClick={() => {setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty("");}} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}><UI.Box size={18} /> 庫存查詢</button>
