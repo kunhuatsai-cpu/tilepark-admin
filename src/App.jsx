@@ -420,9 +420,22 @@ function App() {
             >
                 {currentView === 'orders' && (
                     <div className="flex flex-col h-full">
-                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
-                            <h2 className="text-xl font-bold text-gray-800">訂單管理</h2>
-                            <div className="flex items-center gap-2">
+                        <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none gap-4">
+                            <h2 className="text-xl font-bold text-gray-800 shrink-0">訂單管理</h2>
+
+                            {/* Search Bar */}
+                            <div className="flex-1 max-w-md relative group">
+                                <UI.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="搜尋客戶名稱 / 單號..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none text-sm placeholder:text-gray-400"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
                                 <div className="hidden md:flex bg-gray-100 p-1 rounded-lg border border-gray-200">
                                     <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><UI.Grid size={18} /></button>
                                     <button onClick={() => setViewMode('table')} className={`p-1.5 rounded transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><UI.List size={18} /></button>
