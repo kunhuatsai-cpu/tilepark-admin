@@ -184,7 +184,7 @@ function App() {
         else if (activeTab === 'today') res = res.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr);
         else if (activeTab === 'futures') res = res.filter(o => o.status === '期貨訂單');
         // MODIFIED: Exclude shipped items from hold tab
-        else if (activeTab === 'hold') res = res.filter(o => Utils.safeStr(o.orderType).includes('保留') && o.status !== '已排單出貨');
+        else if (activeTab === 'hold') res = res.filter(o => Utils.safeStr(o.orderType).includes('保留') && Utils.safeStr(o.status).trim() !== '已排單出貨');
         else if (activeTab === 'confirmed') res = res.filter(o => o.status === '已確認庫存');
         else if (activeTab === 'shipped') res = res.filter(o => o.status === '已排單出貨');
         if (searchTerm) { const t = searchTerm.toLowerCase(); res = res.filter(o => Utils.safeStr(o.company).toLowerCase().includes(t) || Utils.safeStr(o.orderId).toLowerCase().includes(t)); }
@@ -197,7 +197,7 @@ function App() {
         const pendingItems = [];
         orders.forEach(o => {
             const isHold = Utils.safeStr(o.orderType).includes('保留');
-            const isShipped = o.status === '已排單出貨';
+            const isShipped = Utils.safeStr(o.status).trim() === '已排單出貨';
             if (isHold && !isShipped) {
                 const itemLines = Utils.parseItemsStr(o.items);
                 itemLines.forEach(item => {
@@ -304,7 +304,7 @@ function App() {
     const newOrdersCount = orders.filter(o => !o.status).length;
     const todayOrdersCount = orders.filter(o => o.status === '已排單出貨' && o.deliveryDate === Utils.getTodayStr()).length;
     const futuresCount = orders.filter(o => o.status === '期貨訂單').length;
-    const holdCount = orders.filter(o => Utils.safeStr(o.orderType).includes('保留') && o.status !== '已排單出貨').length;
+    const holdCount = orders.filter(o => Utils.safeStr(o.orderType).includes('保留') && Utils.safeStr(o.status).trim() !== '已排單出貨').length;
 
     const tabs = [
         { id: 'received', label: '🔥 待處理', count: newOrdersCount },
