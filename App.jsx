@@ -176,57 +176,105 @@ function App() {
         const hasMinQty = !isNaN(minQty);
         const hasSearch = searchTerms.length > 0 || hasMinQty;
 
-        const allGroups = inventory.reduce((acc, curr) => {
-            const qty = Utils.parseQty(curr.qty);
-            const key = `${curr.id}_${curr.name}`;
-            if (!acc[key]) {
-                const cleanId = Utils.cleanFuzzy(curr.id);
-                const cleanName = Utils.cleanFuzzy(curr.name);
-                let totalRes = 0;
-                let detailsRes = [];
-                pendingItems.forEach(pItem => {
-                    const pClean = pItem.cleanName;
-                    const reverseIDMatch = cleanId.length > 1 && pClean.includes(cleanId);
-                    const reverseNameMatch = cleanName.length > 1 && pClean.includes(cleanName);
-                    const normalMatch = (cleanId.length > 1 && cleanId.includes(pClean));
-                    const normalNameMatch = (cleanName.length > 1 && cleanName.includes(pClean));
-                    const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
-                    if (reverseIDMatch || reverseNameMatch || normalMatch || normalNameMatch || tokenMatch) {
-                        totalRes += pItem.qty;
-                        detailsRes.push(pItem);
-                        pItem.matched = true;
-                    }
-                });
-                acc[key] = {
-                    id: curr.id,
-                    name: curr.name,
-                    spec: curr.spec,
-                    packing: curr.packing,
-                    usage: curr.usage,
-                    totalQty: 0,
-                    reservedQty: totalRes,
-                    reserveDetails: detailsRes,
-                    batches: []
-                };
-            }
-            acc[key].totalQty += qty;
-            if (qty > 0) acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
-            return acc;
-        }, {});
+        // 1. Prepare Inventory Map & Optimized Format
+        // map key: inventory.id (or unique key) -> details
+        const inventoryMap = {};
+        const inventoryTargets = inventory.map(item => {
+            const cleanId = Utils.cleanFuzzy(item.id);
+            const cleanName = Utils.cleanFuzzy(item.name);
+            // Split by space, comma, hyphen, slash, underscore
+            const tokens = (item.name || "").split(/[\s,\-\_\/]+/).map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
 
-        const results = Object.values(allGroups).filter(group => {
-            if (group.totalQty <= 0) return false;
-            if (!hasSearch) return false;
+            const key = `${item.id}_${item.name}`;
+            inventoryMap[key] = {
+                ...item,
+                key: key,
+                totalQty: 0,
+                reservedQty: 0,
+                reserveDetails: [],
+                batches: []
+            };
+
+            return {
+                key: key,
+                cleanId,
+                cleanName,
+                tokens,
+                original: item
+            };
+        });
+
+        // 2. Match Pending Items (One-to-One Best Match)
+        pendingItems.forEach(pItem => {
+            let bestMatchKey = null;
+            let maxScore = 0;
+
+            const pCleanName = pItem.cleanName;
+            const pTokens = pItem.cleanTokens;
+
+            inventoryTargets.forEach(target => {
+                let score = 0;
+
+                // A. ID Exact Match (Highest Priority)
+                if (target.cleanId.length > 1 && (pCleanName === target.cleanId)) score += 100;
+
+                // B. ID Contained (High Priority)
+                else if (target.cleanId.length > 1 && pCleanName.includes(target.cleanId)) score += 80;
+
+                // C. Name Contains ID (Medium-High)
+                else if (target.cleanId.length > 1 && target.cleanName.includes(pCleanName)) score += 70;
+
+                // D. Token Match (Medium)
+                // Check if ALL significant tokens in Order Item appear in Inventory Name
+                // e.g. Order: "RED", "116" -> Inventory: "RED", "116", "9.7x9.7" => MATCH
+                const allTokensMatched = pTokens.length > 0 && pTokens.every(pt => {
+                    return target.tokens.some(tt => tt.includes(pt) || pt.includes(tt));
+                });
+                if (allTokensMatched) score += 60;
+
+                // E. Substring Match (Low - Fallback)
+                // Inventory Name contains Order Name
+                if (target.cleanName.length > 1 && target.cleanName.includes(pCleanName)) score += 40;
+
+                // Reverse: Order Name contains Inventory Name (Very Low, prevents "116" matching "RED-116 99x99")
+                if (pCleanName.length > target.cleanName.length && pCleanName.includes(target.cleanName)) score += 20;
+
+                if (score > 0 && score > maxScore) {
+                    maxScore = score;
+                    bestMatchKey = target.key;
+                }
+            });
+
+            if (bestMatchKey && maxScore >= 40) { // Threshold to avoid garbage matches
+                const target = inventoryMap[bestMatchKey];
+                target.reservedQty += pItem.qty;
+                target.reserveDetails.push(pItem);
+                pItem.matched = true;
+                pItem.matchScore = maxScore;
+            }
+        });
+
+        // 3. Aggregate Total Qty from Inventory Batches
+        inventory.forEach(curr => {
+            const key = `${curr.id}_${curr.name}`;
+            const target = inventoryMap[key];
+            const qty = Utils.parseQty(curr.qty);
+            target.totalQty += qty;
+            if (qty > 0) target.batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
+        });
+
+        const results = Object.values(inventoryMap).filter(group => {
+            if (group.totalQty <= 0 && group.reservedQty <= 0) return false; // Show if reserved exists even if phantom stock
+            if (!hasSearch) return group.totalQty > 0; // Default: show only instock
+
             let matchText = true;
             let matchQty = true;
+
             if (searchTerms.length > 0) {
                 const cId = Utils.cleanFuzzy(group.id);
                 const cName = Utils.cleanFuzzy(group.name);
                 const fullStr = cId + cName;
-
-                matchText = searchTerms.every(term => {
-                    return fullStr.includes(term);
-                });
+                matchText = searchTerms.every(term => fullStr.includes(term));
             }
             if (hasMinQty) {
                 matchQty = (group.totalQty - group.reservedQty) >= minQty;
