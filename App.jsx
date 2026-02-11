@@ -608,7 +608,7 @@ function App() {
         <div className="fixed inset-0 flex flex-col md:flex-row font-sans overflow-hidden bg-gray-100">
             <aside className={`hidden md:flex bg-[#1a1a1a] text-white flex-col p-4 shrink-0 h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20 items-center' : 'w-64'}`}>
                 <div className={`mb-10 font-black text-xl flex items-center justify-between ${isSidebarCollapsed ? 'flex-col gap-4' : ''}`}>
-                    {!isSidebarCollapsed && <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.30 (Fix)</span></div>}
+                    {!isSidebarCollapsed && <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.31 (Latest)</span></div>}
                     <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                         {isSidebarCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
                     </button>
