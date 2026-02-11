@@ -1,239 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { 
-  Search, Filter, Grid, List, RefreshCw, FileText, Box, ClipboardList, 
-  Bug, Menu, ChevronLeft, ChevronRight, Check, Clock, User, Lock, 
-  Edit, ArrowDown, Flame, X, AlertTriangle, Truck, Package 
-} from 'lucide-react';
+import { UI } from './components/Icons';
+import StatusBadge from './components/StatusBadge';
 
-// --- Constants ---
-const API_URL = "https://script.google.com/macros/s/AKfycbz1g3yWwW9qLgL6jH6xZ8kX9jC9v8nB7m5/exec"; // Placeholder, needs actual URL if different
-
-// --- Utils ---
-const Utils = {
-  safeStr: (str) => (str || "").toString(),
-  
-  cleanFuzzy: (str) => {
-    return Utils.safeStr(str).replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-  },
-
-  parseQty: (qtyStr) => {
-    if (!qtyStr) return 0;
-    const clean = qtyStr.toString().replace(/[^\d.-]/g, "");
-    return parseFloat(clean) || 0;
-  },
-
-  getTodayStr: () => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  },
-
-  formatDateShort: (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-  },
-
-  formatBatch: (lot) => {
-    return lot ? lot : "No Batch";
-  },
-
-  parseItemsStr: (itemsStr) => {
-    if (!itemsStr) return [];
-    // Improved Parser: Splits by 'x' or '*' that is followed by a number to separate Name from Qty
-    // This avoids treating "RED-116" as ID and leaving "x" as the name.
-    return itemsStr.split('\n').map(line => {
-      const cleanLine = line.trim();
-      if (!cleanLine) return null;
-
-      // Regex to find " x 100", " * 100", " x100", "*100" at the end of the string (case insensitive)
-      // Matches " x 1500片", "x1500", etc.
-      const match = cleanLine.match(/[\s\*xX]+(\d+(\.\d+)?)\s*[\u4e00-\u9fa5]*$/);
-      
-      let name = cleanLine;
-      let qty = 0;
-      let unit = '';
-
-      if (match) {
-        // match[0] is the whole " x 1500片" part
-        // match[1] is "1500"
-        qty = parseFloat(match[1]);
-        // The name is everything before the match
-        name = cleanLine.substring(0, match.index).trim();
-        // Extract unit if present in the matched part (removing numbers and x/space)
-        unit = match[0].replace(/[\d\.\s\*xX]/g, ''); 
-      }
-
-      // Fallback: If regex didn't match, maybe it's just a name line (qty 0)
-      
-      return {
-        id: '', // We don't strictly separate ID anymore to avoid parsing errors
-        name: name,
-        qty: qty,
-        unit: unit
-      };
-    }).filter(i => i && i.name);
-  }
-};
-
-const verifyPassword = async (pwd) => {
-    // Simple hardcoded check for demo purposes
-    return pwd === "8888"; 
-};
-
-// --- Components ---
-
-const StatusBadge = ({ status }) => {
-    let color = "bg-gray-100 text-gray-600";
-    if (status === '已確認庫存') color = "bg-teal-100 text-teal-700 border-teal-200";
-    else if (status === '已排單出貨') color = "bg-blue-100 text-blue-700 border-blue-200";
-    else if (status === '期貨訂單') color = "bg-purple-100 text-purple-700 border-purple-200";
-    else if (!status) color = "bg-red-100 text-red-700 border-red-200 animate-pulse";
-    
-    return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${color}`}>
-            {status || "待處理"}
-        </span>
-    );
-};
-
-const StocktakeModal = ({ product, batch, onClose, onSubmit }) => {
-    const [actualQty, setActualQty] = useState("");
-    const [note, setNote] = useState("");
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSubmit({
-            productId: product.id,
-            productName: product.name,
-            batch: batch.lot,
-            systemQty: batch.qty,
-            actualQty: parseFloat(actualQty),
-            note
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <ClipboardList className="text-purple-600" /> 庫存盤點回報
-                </h3>
-                <div className="bg-gray-50 p-4 rounded-xl mb-4 text-sm">
-                    <div className="font-bold text-gray-800">{product.name}</div>
-                    <div className="flex justify-between mt-2">
-                        <span className="text-gray-500">批號: {batch.lot}</span>
-                        <span className="font-mono font-bold text-gray-700">系統庫存: {batch.qty}</span>
-                    </div>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">實際盤點數量</label>
-                        <input 
-                            type="number" 
-                            required 
-                            className="w-full p-3 border rounded-xl text-lg font-mono font-bold focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="輸入數量..." 
-                            value={actualQty} 
-                            onChange={e => setActualQty(e.target.value)}
-                            autoFocus
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">備註 (選填)</label>
-                        <textarea 
-                            className="w-full p-3 border rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                            placeholder="例如：破損、遺失..." 
-                            rows={2}
-                            value={note}
-                            onChange={e => setNote(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                        <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100">取消</button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-purple-600 text-white hover:bg-purple-700 shadow-lg">確認送出</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const OrderDetailModal = ({ order, inventory, onClose, onUpdateStatus, onDelete, isProcessing }) => {
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={onClose}>
-            <div className="bg-white w-full md:max-w-2xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                    <div>
-                        <div className="text-xs text-gray-400 font-mono">#{order.orderId}</div>
-                        <div className="font-bold text-lg text-gray-800">{order.company}</div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full"><X size={20} /></button>
-                </div>
-                <div className="p-4 overflow-y-auto flex-1">
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        <StatusBadge status={order.status} />
-                        <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold">{order.orderType}</span>
-                        {order.deliveryDate && <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1"><Truck size={10} /> {order.deliveryDate}</span>}
-                    </div>
-
-                    <div className="space-y-4">
-                        <h4 className="text-sm font-bold text-gray-500 border-b pb-2">訂單明細</h4>
-                        <div className="space-y-2">
-                            {Utils.parseItemsStr(order.items).map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                    <div className="flex-1">
-                                        <div className="font-bold text-gray-800">{item.name}</div>
-                                        {item.id && <div className="text-xs text-gray-400 font-mono">{item.id}</div>}
-                                    </div>
-                                    <div className="font-mono font-bold text-lg text-gray-700">x{item.qty}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    {/* Contact Info */}
-                    <div className="mt-6 bg-blue-50 p-4 rounded-xl text-sm text-blue-800 space-y-1">
-                        <div className="font-bold mb-2 flex items-center gap-2"><User size={14}/> 聯絡資訊</div>
-                        <div>聯絡人: {order.contactName || "無"}</div>
-                        <div>電話: {order.phone || "無"}</div>
-                        <div>地址: {order.address || "無"}</div>
-                        {order.note && <div className="mt-2 pt-2 border-t border-blue-100 text-blue-600">備註: {order.note}</div>}
-                    </div>
-                </div>
-                <div className="p-4 border-t bg-white flex flex-col gap-2">
-                    <div className="flex gap-2">
-                         <button 
-                            onClick={() => onUpdateStatus([order.orderId], '已確認庫存')}
-                            disabled={isProcessing}
-                            className="flex-1 bg-teal-600 text-white py-3 rounded-xl font-bold shadow-sm hover:bg-teal-700 active:scale-95 transition-all flex justify-center items-center gap-2"
-                        >
-                            <Check size={18} /> 確認庫存
-                        </button>
-                        <button 
-                            onClick={() => onUpdateStatus([order.orderId], '已排單出貨')}
-                            disabled={isProcessing}
-                            className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all flex justify-center items-center gap-2"
-                        >
-                            <Truck size={18} /> 排單出貨
-                        </button>
-                    </div>
-                    <button 
-                        onClick={() => { if(confirm('確定刪除此訂單？')) onDelete([order.orderId]); }}
-                        className="w-full py-2 text-red-400 text-xs font-bold hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                        刪除訂單
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// --- Main App ---
+import StocktakeModal from './components/StocktakeModal';
+import OrderDetailModal from './components/OrderDetailModal';
+import { Utils } from './utils/helpers';
+import { API_URL } from './utils/constants';
+import { verifyPassword } from './utils/security';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -274,47 +47,43 @@ function App() {
     const fetchAllData = useCallback(async () => {
         setLoading(true); setApiError(null);
         try {
-            // Simulated fetch for demonstration if API_URL is placeholder, 
-            // otherwise use real fetch. Here we use real fetch assuming API is valid or handle error.
-            // For the sake of this standalone file, I'll keep the fetch but add a fallback for demo data if it fails 
-            // so the UI is viewable.
-            
-            // NOTE: In a real scenario, remove this fallback or configure CORS correctly.
-            const demoOrders = [
-                { orderId: 'TILE-01225291', company: '夏綠蒂磁磚', status: '', orderType: '新案場 (保留庫存)', items: 'RED-116 x 1500片', timestamp: new Date().toISOString() },
-                { orderId: 'TILE-01223878', company: '夏綠蒂磁磚', status: '', orderType: '新案場 (保留庫存)', items: 'RED-116 x 1400片', timestamp: new Date(Date.now() - 3600000).toISOString() }
-            ];
-            const demoInv = [
-                { id: 'RD116', name: 'RED-116 9.7x9.7cm', qty: 5131, spec: '9.7x9.7', packing: '150', usage: '324', lot: '5F0' },
-                { id: 'RD116', name: 'RED-116 9.7x9.7cm', qty: 402, spec: '9.7x9.7', packing: '150', usage: '324', lot: '8D0' },
-            ];
+            const res = await fetch(`${API_URL}?action=getData&t=${Date.now()}`, { redirect: 'follow' });
+            const result = await res.json();
+            if (result.error) throw new Error(result.error);
 
-            try {
-                 const res = await fetch(`${API_URL}?action=getData&t=${Date.now()}`, { redirect: 'follow' });
-                 if (!res.ok) throw new Error("Network response was not ok");
-                 const result = await res.json();
-                 if (result.error) throw new Error(result.error);
-                 
-                 const newOrders = (result.orders || []).filter(o => o && typeof o === 'object');
-                 setOrders(newOrders);
-                 setInventory((result.inventory || []).filter(i => i && typeof i === 'object'));
-            } catch(e) {
-                console.warn("Using demo data due to fetch error:", e);
-                setOrders(demoOrders);
-                setInventory(demoInv);
-            }
+            // Sanitize data: filter out nulls or malformed objects
+            const newOrders = (result.orders || []).filter(o => o && typeof o === 'object');
+            setOrders(newOrders);
+            setInventory((result.inventory || []).filter(i => i && typeof i === 'object'));
 
             // Smart Redirect Logic
             if (isFirstLoadRef.current) {
-                // Logic to set active tab...
+                const newCount = newOrders.filter(o => !o.status).length;
+                const todayStr = Utils.getTodayStr();
+                const todayCount = newOrders.filter(o => o.status === '已排單出貨' && o.deliveryDate === todayStr).length;
+
+                if (newCount > 0) {
+                    setActiveTab('received');
+                } else if (todayCount > 0) {
+                    setActiveTab('today');
+                } else {
+                    setActiveTab('all');
+                }
+
+                lastOrderCountRef.current = newOrders.length;
                 isFirstLoadRef.current = false;
+            } else if (newOrders.length > lastOrderCountRef.current) {
+                const diff = newOrders.length - lastOrderCountRef.current;
+                sendBrowserNotification("🔔 新訂單通知", `收到 ${diff} 筆 Tile Park 新訂單，請盡快處理！`);
+                lastOrderCountRef.current = newOrders.length;
             }
 
+            const resLog = await fetch(`${API_URL}?action=getStocktakeLog&t=${Date.now()}`, { redirect: 'follow' });
+            const resultLog = await resLog.json();
+            if (resultLog.log) setStocktakeLog(resultLog.log);
+
             setLastUpdated(new Date().toLocaleTimeString());
-        } catch (error) { 
-            console.error("Fetch Error:", error); 
-            setApiError("無法讀取雲端數據"); 
-        }
+        } catch (error) { console.error("Fetch Error:", error); setApiError("無法讀取雲端數據"); }
         finally { setLoading(false); }
     }, []);
 
@@ -383,16 +152,17 @@ function App() {
                 const itemLines = Utils.parseItemsStr(o.items);
                 itemLines.forEach(item => {
                     let qty = Utils.parseQty(item.qty);
-                    // Name from parser is now "RED-116" (entire string before 'x')
-                    const originalName = item.name.trim(); 
-                    const cleanName = Utils.cleanFuzzy(originalName);
-                    
+                    const cleanFullLine = Utils.cleanFuzzy(item.name);
+                    // Split by space, comma, hyphen, slash, underscore to match inventory logic
+                    const tokens = item.name.split(/[\s,\-\_\/]+/);
+                    const cleanTokens = tokens.map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
                     if (qty > 0) {
                         pendingItems.push({
                             company: o.company,
                             qty: qty,
-                            originalName: originalName,
-                            cleanName: cleanName,
+                            originalName: item.name,
+                            cleanName: cleanFullLine,
+                            cleanTokens: cleanTokens,
                             orderId: o.orderId,
                             orderType: o.orderType,
                             matched: false
@@ -407,74 +177,105 @@ function App() {
         const hasMinQty = !isNaN(minQty);
         const hasSearch = searchTerms.length > 0 || hasMinQty;
 
-        const allGroups = inventory.reduce((acc, curr) => {
-            const qty = Utils.parseQty(curr.qty);
-            const key = `${curr.id}_${curr.name}`;
-            
-            if (!acc[key]) {
-                const invId = curr.id; // "RD116"
-                const invName = curr.name; // "RED-116 9.7x9.7cm"
-                
-                const invIdClean = Utils.cleanFuzzy(invId); // "RD116"
-                const invNameClean = Utils.cleanFuzzy(invName); // "RED11697X97CM"
+        // 1. Prepare Inventory Map & Optimized Format
+        // map key: inventory.id (or unique key) -> details
+        const inventoryMap = {};
+        const inventoryTargets = inventory.map(item => {
+            const cleanId = Utils.cleanFuzzy(item.id);
+            const cleanName = Utils.cleanFuzzy(item.name);
+            // Split by space, comma, hyphen, slash, underscore
+            const tokens = (item.name || "").split(/[\s,\-\_\/]+/).map(t => Utils.cleanFuzzy(t)).filter(t => t.length > 1);
 
-                let totalRes = 0;
-                let detailsRes = [];
-                
-                pendingItems.forEach(pItem => {
-                    const pOriginal = pItem.originalName; // "RED-116"
-                    const pClean = pItem.cleanName; // "RED116"
-                    
-                    // Logic 1: ID Match (RD116 vs RED116)
-                    // If the clean ID is contained in the clean Order Item (or vice versa), allowing for small variations
-                    const matchID = (invIdClean.length > 2 && pClean.includes(invIdClean)) || 
-                                    (invIdClean.length > 2 && invIdClean.includes(pClean));
+            const key = `${item.id}_${item.name}`;
+            inventoryMap[key] = {
+                ...item,
+                key: key,
+                totalQty: 0,
+                reservedQty: 0,
+                reserveDetails: [],
+                batches: []
+            };
 
-                    // Logic 2: Name Match (Direct Inclusion)
-                    // Does "RED-116 9.7x9.7cm" include "RED-116"? YES.
-                    const matchNameDirect = invName.toLowerCase().includes(pOriginal.toLowerCase());
+            return {
+                key: key,
+                cleanId,
+                cleanName,
+                tokens,
+                original: item
+            };
+        });
 
-                    // Logic 3: Name Match (Clean Inclusion)
-                    // Does "RED11697X97CM" include "RED116"? YES.
-                    const matchNameClean = (pClean.length > 2 && invNameClean.includes(pClean));
+        // 2. Match Pending Items (One-to-One Best Match)
+        pendingItems.forEach(pItem => {
+            let bestMatchKey = null;
+            let maxScore = 0;
 
-                    if (matchID || matchNameDirect || matchNameClean) {
-                        totalRes += pItem.qty;
-                        detailsRes.push(pItem);
-                        pItem.matched = true;
-                    }
+            const pCleanName = pItem.cleanName;
+            const pTokens = pItem.cleanTokens;
+
+            inventoryTargets.forEach(target => {
+                let score = 0;
+
+                // A. ID Exact Match (Highest Priority)
+                if (target.cleanId.length > 1 && (pCleanName === target.cleanId)) score += 100;
+
+                // B. ID Contained (High Priority)
+                else if (target.cleanId.length > 1 && pCleanName.includes(target.cleanId)) score += 80;
+
+                // C. Name Contains ID (Medium-High)
+                else if (target.cleanId.length > 1 && target.cleanName.includes(pCleanName)) score += 70;
+
+                // D. Token Match (Medium)
+                // Check if ALL significant tokens in Order Item appear in Inventory Name
+                // e.g. Order: "RED", "116" -> Inventory: "RED", "116", "9.7x9.7" => MATCH
+                const allTokensMatched = pTokens.length > 0 && pTokens.every(pt => {
+                    return target.tokens.some(tt => tt.includes(pt) || pt.includes(tt));
                 });
+                if (allTokensMatched) score += 60;
 
-                acc[key] = {
-                    id: curr.id,
-                    name: curr.name,
-                    spec: curr.spec,
-                    packing: curr.packing,
-                    usage: curr.usage,
-                    totalQty: 0,
-                    reservedQty: totalRes,
-                    reserveDetails: detailsRes,
-                    batches: []
-                };
+                // E. Substring Match (Low - Fallback)
+                // Inventory Name contains Order Name
+                if (target.cleanName.length > 1 && target.cleanName.includes(pCleanName)) score += 40;
+
+                // Reverse: Order Name contains Inventory Name (Very Low, prevents "116" matching "RED-116 99x99")
+                if (pCleanName.length > target.cleanName.length && pCleanName.includes(target.cleanName)) score += 20;
+
+                if (score > 0 && score > maxScore) {
+                    maxScore = score;
+                    bestMatchKey = target.key;
+                }
+            });
+
+            if (bestMatchKey && maxScore >= 40) { // Threshold to avoid garbage matches
+                const target = inventoryMap[bestMatchKey];
+                target.reservedQty += pItem.qty;
+                target.reserveDetails.push(pItem);
+                pItem.matched = true;
+                pItem.matchScore = maxScore;
             }
-            acc[key].totalQty += qty;
-            if (qty > 0) acc[key].batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
-            return acc;
-        }, {});
+        });
 
-        const results = Object.values(allGroups).filter(group => {
-            if (group.totalQty <= 0) return false;
-            if (!hasSearch) return false;
+        // 3. Aggregate Total Qty from Inventory Batches
+        inventory.forEach(curr => {
+            const key = `${curr.id}_${curr.name}`;
+            const target = inventoryMap[key];
+            const qty = Utils.parseQty(curr.qty);
+            target.totalQty += qty;
+            if (qty > 0) target.batches.push({ lot: Utils.formatBatch(curr.lot), qty: qty });
+        });
+
+        const results = Object.values(inventoryMap).filter(group => {
+            if (group.totalQty <= 0 && group.reservedQty <= 0) return false; // Show if reserved exists even if phantom stock
+            if (!hasSearch) return group.totalQty > 0; // Default: show only instock
+
             let matchText = true;
             let matchQty = true;
+
             if (searchTerms.length > 0) {
                 const cId = Utils.cleanFuzzy(group.id);
                 const cName = Utils.cleanFuzzy(group.name);
                 const fullStr = cId + cName;
-
-                matchText = searchTerms.every(term => {
-                    return fullStr.includes(term);
-                });
+                matchText = searchTerms.every(term => fullStr.includes(term));
             }
             if (hasMinQty) {
                 matchQty = (group.totalQty - group.reservedQty) >= minQty;
@@ -601,30 +402,30 @@ function App() {
                 <div className={`mb-10 font-black text-xl flex items-center justify-between ${isSidebarCollapsed ? 'flex-col gap-4' : ''}`}>
                     {!isSidebarCollapsed && <div>TILE PARK <span className="block text-[10px] text-orange-500">Warehouse V17.26</span></div>}
                     <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="text-gray-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
-                        {isSidebarCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
+                        {isSidebarCollapsed ? <UI.Menu size={20} /> : <UI.ChevronLeft size={20} />}
                     </button>
                 </div>
                 <nav className="flex flex-col gap-2 w-full">
                     <button onClick={() => setCurrentView('orders')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'orders' ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-white/10'} ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
-                        <FileText size={isSidebarCollapsed ? 24 : 18} />
+                        <UI.File size={isSidebarCollapsed ? 24 : 18} />
                         {!isSidebarCollapsed && "訂單管理"}
                     </button>
                     <button onClick={() => { setCurrentView('inventory'); setInvSearchText(""); setInvSearchQty(""); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'inventory' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:bg-white/10'} ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
-                        <Box size={isSidebarCollapsed ? 24 : 18} />
+                        <UI.Box size={isSidebarCollapsed ? 24 : 18} />
                         {!isSidebarCollapsed && "庫存查詢"}
                     </button>
                     <button onClick={() => setCurrentView('stocktake')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'stocktake' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-white/10'} ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
-                        <div className="relative"><RefreshCw size={isSidebarCollapsed ? 24 : 18} />{stocktakeLog.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>}</div>
+                        <div className="relative"><UI.Audit size={isSidebarCollapsed ? 24 : 18} />{stocktakeLog.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>}</div>
                         {!isSidebarCollapsed && "盤點稽核"}
                     </button>
                     <button onClick={() => setCurrentView('diagnosis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${currentView === 'diagnosis' ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-white/10'} ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
-                        <Bug size={isSidebarCollapsed ? 24 : 18} />
+                        <UI.Bug size={isSidebarCollapsed ? 24 : 18} />
                         {!isSidebarCollapsed && "系統診斷"}
                     </button>
                 </nav>
                 <div className="mt-auto text-[10px] text-gray-500 text-center flex flex-col gap-1">
                     <span>{lastUpdated}</span>
-                    <span className="text-[9px] text-gray-600 flex items-center justify-center gap-1"><Clock size={10} /> 30秒自動更新</span>
+                    <span className="text-[9px] text-gray-600 flex items-center justify-center gap-1"><UI.Clock size={10} /> 30秒自動更新</span>
                 </div>
             </aside>
 
@@ -632,7 +433,7 @@ function App() {
             {pullMoveY > 0 && (
                 <div className="md:hidden fixed top-0 w-full flex justify-center py-4 z-40 pointer-events-none" style={{ opacity: Math.min(pullMoveY / 70, 1), transform: `translateY(${Math.min(pullMoveY, 100) / 2}px)` }}>
                     <div className="bg-white rounded-full p-2 shadow-lg border border-gray-100/50 backdrop-blur-sm">
-                        {isRefreshing ? <RefreshCw className="animate-spin text-orange-600" size={24} /> : <ArrowDown className="text-gray-400 rotate-180" size={24} />}
+                        {isRefreshing ? <UI.Refresh className="animate-spin text-orange-600" size={24} /> : <UI.ArrowDown className="text-gray-400 rotate-180" size={24} />}
                     </div>
                 </div>
             )}
@@ -640,22 +441,22 @@ function App() {
             {/* 📱 Mobile Bottom Navigation Bar */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 flex justify-around items-center z-[60] pb-safe pt-2 h-[80px] shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
                 <button onClick={() => setCurrentView('orders')} className={`flex flex-col items-center justify-center w-full h-full gap-1 active:scale-90 transition-all ${currentView === 'orders' ? 'text-orange-600' : 'text-gray-400'}`}>
-                    <FileText size={26} className={currentView === 'orders' ? 'drop-shadow-sm' : ''} />
+                    <UI.File size={26} className={currentView === 'orders' ? 'drop-shadow-sm' : ''} />
                     <span className="text-[10px] font-bold">訂單</span>
                 </button>
                 <button onClick={() => setCurrentView('inventory')} className={`flex flex-col items-center justify-center w-full h-full gap-1 active:scale-90 transition-all ${currentView === 'inventory' ? 'text-teal-600' : 'text-gray-400'}`}>
-                    <Box size={26} className={currentView === 'inventory' ? 'drop-shadow-sm' : ''} />
+                    <UI.Box size={26} className={currentView === 'inventory' ? 'drop-shadow-sm' : ''} />
                     <span className="text-[10px] font-bold">庫存</span>
                 </button>
                 <button onClick={() => setCurrentView('stocktake')} className={`flex flex-col items-center justify-center w-full h-full gap-1 active:scale-90 transition-all relative ${currentView === 'stocktake' ? 'text-purple-600' : 'text-gray-400'}`}>
                     <div className="relative">
-                        <RefreshCw size={26} className={currentView === 'stocktake' ? 'drop-shadow-sm' : ''} />
+                        <UI.Audit size={26} className={currentView === 'stocktake' ? 'drop-shadow-sm' : ''} />
                         {stocktakeLog.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                     </div>
                     <span className="text-[10px] font-bold">盤點</span>
                 </button>
                 <button onClick={() => setCurrentView('diagnosis')} className={`flex flex-col items-center justify-center w-full h-full gap-1 active:scale-90 transition-all ${currentView === 'diagnosis' ? 'text-red-600' : 'text-gray-400'}`}>
-                    <Bug size={26} className={currentView === 'diagnosis' ? 'drop-shadow-sm' : ''} />
+                    <UI.Bug size={26} className={currentView === 'diagnosis' ? 'drop-shadow-sm' : ''} />
                     <span className="text-[10px] font-bold">診斷</span>
                 </button>
             </div>
@@ -674,7 +475,7 @@ function App() {
 
                             {/* Search Bar */}
                             <div className="flex-1 max-w-md relative group">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+                                <UI.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={18} />
                                 <input
                                     type="text"
                                     placeholder="搜尋客戶名稱 / 單號..."
@@ -686,10 +487,10 @@ function App() {
 
                             <div className="flex items-center gap-2 shrink-0">
                                 <div className="hidden md:flex bg-gray-100 p-1 rounded-lg border border-gray-200">
-                                    <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><Grid size={18} /></button>
-                                    <button onClick={() => setViewMode('table')} className={`p-1.5 rounded transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><List size={18} /></button>
+                                    <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><UI.Grid size={18} /></button>
+                                    <button onClick={() => setViewMode('table')} className={`p-1.5 rounded transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}><UI.List size={18} /></button>
                                 </div>
-                                <button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><RefreshCw className={loading ? 'animate-spin' : ''} size={18} /></button>
+                                <button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border transition-all ${loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50 text-gray-700 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''} /></button>
                             </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0">
@@ -763,7 +564,7 @@ function App() {
                                                                     setSelectedIds(n);
                                                                 }}
                                                             >
-                                                                {isSelected && <Check size={10} />}
+                                                                {isSelected && <UI.Check size={10} />}
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3">
@@ -787,7 +588,7 @@ function App() {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-right">
-                                                            <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500 ml-auto" />
+                                                            <UI.ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500 ml-auto" />
                                                         </td>
                                                     </tr>
                                                 );
@@ -807,7 +608,7 @@ function App() {
 
                                         return (
                                             <div key={o.orderId} onClick={() => setSelectedOrder(o)} className={`bg-white p-4 rounded-xl shadow-sm border flex flex-col gap-3 active:scale-[0.99] transition-all cursor-pointer relative group ${isSelected ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-gray-100 hover:border-orange-300'} ${isNew ? 'ring-1 ring-red-100' : ''} ${isFutures ? 'border-purple-200 bg-purple-50/20' : ''}`}>
-                                                {isNew && <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse-fast"><Flame size={10} /> NEW</div>}
+                                                {isNew && <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse-fast"><UI.Fire size={10} /> NEW</div>}
                                                 <div className="flex justify-between items-start">
                                                     <div
                                                         className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${isSelected ? 'bg-orange-200 text-orange-800' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
@@ -819,7 +620,7 @@ function App() {
                                                         }}
                                                     >
                                                         <span className="font-mono font-bold text-sm">#{o.orderId}</span>
-                                                        {isSelected && <Check size={14} className="text-orange-600" />}
+                                                        {isSelected && <UI.Check size={14} className="text-orange-600" />}
                                                     </div>
                                                     <StatusBadge status={o.status} />
                                                 </div>
@@ -844,9 +645,9 @@ function App() {
                                                 </div>
                                                 <div className="flex justify-between items-end pt-2 border-t border-gray-50 mt-auto">
                                                     <div className="text-xs text-gray-400 space-y-0.5">
-                                                        <div className="flex items-center gap-1"><User size={12} /> {o.contactName || '未填寫'}</div>
-                                                        <div className="flex items-center gap-1 hidden md:flex"><Clock size={12} /> {Utils.formatDateShort(o.timestamp)}</div>
-                                                        <div className="flex items-center gap-1 md:hidden text-[10px] text-gray-300"><Clock size={10} /> {new Date(o.timestamp).toLocaleDateString()}</div>
+                                                        <div className="flex items-center gap-1"><UI.User size={12} /> {o.contactName || '未填寫'}</div>
+                                                        <div className="flex items-center gap-1 hidden md:flex"><UI.Clock size={12} /> {Utils.formatDateShort(o.timestamp)}</div>
+                                                        <div className="flex items-center gap-1 md:hidden text-[10px] text-gray-300"><UI.Clock size={10} /> {new Date(o.timestamp).toLocaleDateString()}</div>
                                                     </div>
                                                     <button className="px-3 py-1.5 bg-white text-xs font-bold text-gray-600 rounded-lg border shadow-sm hover:bg-gray-50 transition-colors">
                                                         查看詳情
@@ -868,13 +669,13 @@ function App() {
                     <div className="flex flex-col h-full">
                         <header className="bg-white border-b p-4 shadow-sm flex-none z-10">
                             <div className="flex gap-4 max-w-3xl">
-                                <div className="relative flex-1"><Search className="absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchText} onChange={e => setInvSearchText(e.target.value)} autoFocus /></div>
-                                <div className="relative w-24 md:w-32"><Filter className="absolute left-3 top-3 text-gray-400" /><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchQty} onChange={e => setInvSearchQty(e.target.value)} /></div>
+                                <div className="relative flex-1"><UI.Search className="absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="搜尋品名/貨號..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchText} onChange={e => setInvSearchText(e.target.value)} autoFocus /></div>
+                                <div className="relative w-24 md:w-32"><UI.Filter className="absolute left-3 top-3 text-gray-400" /><input type="number" placeholder="數量..." className="w-full pl-10 p-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={invSearchQty} onChange={e => setInvSearchQty(e.target.value)} /></div>
                             </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar pb-24 min-h-0">
                             {groupedInventory.length === 0 ? (
-                                <div className="text-center py-20 text-gray-400"><Box size={48} className="mx-auto mb-4 opacity-20" /><p>無符合資料</p></div>
+                                <div className="text-center py-20 text-gray-400"><UI.Box size={48} className="mx-auto mb-4 opacity-20" /><p>無符合資料</p></div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
                                     {groupedInventory.map((item, idx) => (
@@ -898,7 +699,7 @@ function App() {
                                             {/* Reserved Details */}
                                             {item.reservedQty > 0 && (
                                                 <div className="bg-orange-50 p-3 border-b border-orange-100 space-y-1">
-                                                    <div className="text-[10px] font-bold text-orange-400 flex items-center gap-1"><Lock size={10} /> 保留明細</div>
+                                                    <div className="text-[10px] font-bold text-orange-400 flex items-center gap-1"><UI.Lock size={10} /> 保留明細</div>
                                                     {item.reserveDetails.map((det, dIdx) => (
                                                         <div key={dIdx} className="flex justify-between text-xs text-orange-900"><span>{det.company} ({det.orderId})</span><span className="font-mono font-bold">{det.qty}</span></div>
                                                     ))}
@@ -917,7 +718,7 @@ function App() {
                                                             onClick={() => setStocktakeTarget({ product: item, batch: b })}
                                                             className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-purple-600 border border-transparent hover:border-purple-200 px-2 py-1 rounded transition-all bg-white shadow-sm"
                                                         >
-                                                            <Edit size={10} /> 盤點
+                                                            <UI.Edit size={10} /> 盤點
                                                         </button>
                                                     </div>
                                                 ))}
@@ -933,8 +734,8 @@ function App() {
                 {currentView === 'stocktake' && (
                     <div className="flex flex-col h-full">
                         <header className="flex justify-between items-center p-4 bg-white border-b shadow-sm flex-none">
-                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><RefreshCw className="text-purple-600" /> 盤點待辦事項 (待處理)</h2>
-                            <button onClick={fetchAllData} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><RefreshCw size={18} /></button>
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><UI.Audit className="text-purple-600" /> 盤點待辦事項 (待處理)</h2>
+                            <button onClick={fetchAllData} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><UI.Refresh size={18} /></button>
                         </header>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24 min-h-0 bg-gray-50">
                             {stocktakeLog.length === 0 ? <div className="text-center py-20 text-gray-400">目前沒有待修正的庫存</div> : (
@@ -958,7 +759,7 @@ function App() {
                                             <div className="flex flex-col items-end gap-2">
                                                 <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded font-bold">狀態: 待處理</span>
                                                 <button onClick={() => handleResolveStocktake(log)} className="bg-white border-2 border-purple-600 text-purple-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-600 hover:text-white shadow-sm active:scale-95 transition-all flex items-center gap-1">
-                                                    <Check size={14} /> 點擊結案
+                                                    <UI.Check size={14} /> 點擊結案
                                                 </button>
                                             </div>
                                         </div>
@@ -971,8 +772,8 @@ function App() {
 
                 {currentView === 'diagnosis' && (
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-100 pb-24 min-h-0">
-                        <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><Bug className="text-red-500" /> 系統保留單診斷器</h2>
-                        <div className="flex justify-end mb-4"><button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border bg-white shadow-sm flex items-center gap-2 font-bold text-sm ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50 active:scale-95'}`}><RefreshCw className={loading ? 'animate-spin-fast' : ''} /> 重新整理數據</button></div>
+                        <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><UI.Bug className="text-red-500" /> 系統保留單診斷器</h2>
+                        <div className="flex justify-end mb-4"><button onClick={fetchAllData} disabled={loading} className={`p-2 rounded border bg-white shadow-sm flex items-center gap-2 font-bold text-sm ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50 active:scale-95'}`}><UI.Refresh className={loading ? 'animate-spin-fast' : ''} /> 重新整理數據</button></div>
                         <div className="space-y-2">
                             {diagnosisData.length === 0 ? (
                                 <div className="text-center p-10 text-gray-400 font-bold">目前沒有偵測到任何保留單</div>
