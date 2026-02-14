@@ -188,16 +188,18 @@ function App() {
                 pendingItems.forEach(pItem => {
                     const pClean = pItem.cleanName;
                     const cleanOrderItemId = Utils.cleanFuzzy(pItem.orderItemId);
-                    // ID 直接相等比對
+                    // 庫存貨號與訂單項目 ID 直接相等比對
                     const idExactMatch = cleanId.length > 1 && cleanOrderItemId.length > 1 && cleanId === cleanOrderItemId;
-                    // 訂單項目 ID 與庫存名稱比對 (處理庫存 ID 為縮寫如 RD116，但庫存名稱含完整型號 RED-116 的情況)
+                    // 訂單項目 ID 出現在庫存名稱開頭 (處理庫存貨號為縮寫如 RD116，但庫存名稱含完整型號 RED-116 的情況)
                     const idInNameMatch = cleanOrderItemId.length > 1 && cleanName.length > 1 && cleanName.startsWith(cleanOrderItemId);
+                    // 庫存名稱包含訂單項目清理後名稱 (處理訂單沒有 [ID] 前綴的情況，如 "RED-116 x 1500片")
+                    const nameInInvNameMatch = pClean.length > 2 && cleanName.length > 1 && cleanName.startsWith(pClean);
                     // 原有的名稱比對邏輯
                     const reverseIDMatch = cleanId.length > 1 && pClean.includes(cleanId);
                     const reverseNameMatch = cleanName.length > 1 && pClean.includes(cleanName);
                     const normalMatch = (cleanId.length > 1 && cleanId.includes(pClean));
                     const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
-                    if (idExactMatch || idInNameMatch || reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch) {
+                    if (idExactMatch || idInNameMatch || nameInInvNameMatch || reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch) {
                         totalRes += pItem.qty;
                         detailsRes.push(pItem);
                         pItem.matched = true;
