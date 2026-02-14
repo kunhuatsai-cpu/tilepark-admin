@@ -159,6 +159,7 @@ function App() {
                         pendingItems.push({
                             company: o.company,
                             qty: qty,
+                            orderItemId: item.id,
                             originalName: item.name,
                             cleanName: cleanFullLine,
                             cleanTokens: cleanTokens,
@@ -186,11 +187,17 @@ function App() {
                 let detailsRes = [];
                 pendingItems.forEach(pItem => {
                     const pClean = pItem.cleanName;
+                    const cleanOrderItemId = Utils.cleanFuzzy(pItem.orderItemId);
+                    // ID 直接相等比對
+                    const idExactMatch = cleanId.length > 1 && cleanOrderItemId.length > 1 && cleanId === cleanOrderItemId;
+                    // 訂單項目 ID 與庫存名稱比對 (處理庫存 ID 為縮寫如 RD116，但庫存名稱含完整型號 RED-116 的情況)
+                    const idInNameMatch = cleanOrderItemId.length > 1 && cleanName.length > 1 && cleanName.startsWith(cleanOrderItemId);
+                    // 原有的名稱比對邏輯
                     const reverseIDMatch = cleanId.length > 1 && pClean.includes(cleanId);
                     const reverseNameMatch = cleanName.length > 1 && pClean.includes(cleanName);
                     const normalMatch = (cleanId.length > 1 && cleanId.includes(pClean));
                     const tokenMatch = pItem.cleanTokens.some(t => t === cleanId);
-                    if (reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch) {
+                    if (idExactMatch || idInNameMatch || reverseIDMatch || reverseNameMatch || normalMatch || tokenMatch) {
                         totalRes += pItem.qty;
                         detailsRes.push(pItem);
                         pItem.matched = true;
